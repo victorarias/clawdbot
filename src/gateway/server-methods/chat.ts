@@ -3,11 +3,18 @@ import { randomUUID } from "node:crypto";
 import { resolveThinkingDefault } from "../../agents/model-selection.js";
 import { resolveAgentTimeoutMs } from "../../agents/timeout.js";
 import { agentCommand } from "../../commands/agent.js";
-import { mergeSessionEntry, saveSessionStore } from "../../config/sessions.js";
+import {
+  mergeSessionEntry,
+  resolveAgentMainSessionKey,
+  saveSessionStore,
+} from "../../config/sessions.js";
+import {
+  normalizeMainKey,
+  resolveAgentIdFromSessionKey,
+} from "../../routing/session-key.js";
 import { registerAgentRunContext } from "../../infra/agent-events.js";
 import { defaultRuntime } from "../../runtime.js";
 import { resolveSendPolicy } from "../../sessions/send-policy.js";
-import { INTERNAL_MESSAGE_PROVIDER } from "../../utils/message-provider.js";
 import {
   abortChatRunById,
   abortChatRunsForSessionKey,
@@ -222,9 +229,7 @@ export const chatHandlers: GatewayRequestHandlers = {
         return;
       }
     }
-    const { cfg, storePath, store, entry, canonicalKey } = loadSessionEntry(
-      p.sessionKey,
-    );
+    const { cfg, storePath, store, entry } = loadSessionEntry(p.sessionKey);
     const timeoutMs = resolveAgentTimeoutMs({
       cfg,
       overrideMs: p.timeoutMs,
@@ -308,8 +313,14 @@ export const chatHandlers: GatewayRequestHandlers = {
         clientRunId,
       });
 
+      // Normalize short main key alias to canonical form before store write
+      const agentId = resolveAgentIdFromSessionKey(p.sessionKey);
+      const mainSessionKey = resolveAgentMainSessionKey({ cfg, agentId });
+      const rawMainKey = normalizeMainKey(cfg.session?.mainKey);
+      const storeKey =
+        p.sessionKey === rawMainKey ? mainSessionKey : p.sessionKey;
       if (store) {
-        store[canonicalKey] = sessionEntry;
+        store[storeKey] = sessionEntry;
         if (storePath) {
           await saveSessionStore(storePath, store);
         }
@@ -331,7 +342,7 @@ export const chatHandlers: GatewayRequestHandlers = {
           thinking: p.thinking,
           deliver: p.deliver,
           timeout: Math.ceil(timeoutMs / 1000).toString(),
-          messageProvider: INTERNAL_MESSAGE_PROVIDER,
+          messageProvider: "webchat",
           abortSignal: abortController.signal,
         },
         defaultRuntime,

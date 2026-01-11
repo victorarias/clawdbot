@@ -1,9 +1,5 @@
 import { randomUUID } from "node:crypto";
 import fs from "node:fs";
-import {
-  resolveAgentWorkspaceDir,
-  resolveDefaultAgentId,
-} from "../agents/agent-scope.js";
 import type { ModelCatalogEntry } from "../agents/model-catalog.js";
 import { resolveThinkingDefault } from "../agents/model-selection.js";
 import {
@@ -28,6 +24,7 @@ import { buildConfigSchema } from "../config/schema.js";
 import {
   loadSessionStore,
   mergeSessionEntry,
+  resolveAgentMainSessionKey,
   resolveMainSessionKeyFromConfig,
   type SessionEntry,
   saveSessionStore,
@@ -37,10 +34,11 @@ import {
   loadVoiceWakeConfig,
   setVoiceWakeTriggers,
 } from "../infra/voicewake.js";
-import { loadClawdbotPlugins } from "../plugins/loader.js";
 import { clearCommandLane } from "../process/command-queue.js";
-import { normalizeProviderId } from "../providers/plugins/index.js";
-import { normalizeMainKey } from "../routing/session-key.js";
+import {
+  normalizeMainKey,
+  resolveAgentIdFromSessionKey,
+} from "../routing/session-key.js";
 import { defaultRuntime } from "../runtime.js";
 import {
   abortChatRunById,
@@ -207,29 +205,7 @@ export function createBridgeHandlers(ctx: BridgeHandlersContext) {
               },
             };
           }
-          const cfg = loadConfig();
-          const workspaceDir = resolveAgentWorkspaceDir(
-            cfg,
-            resolveDefaultAgentId(cfg),
-          );
-          const pluginRegistry = loadClawdbotPlugins({
-            config: cfg,
-            workspaceDir,
-            logger: {
-              info: () => {},
-              warn: () => {},
-              error: () => {},
-              debug: () => {},
-            },
-          });
-          const schema = buildConfigSchema({
-            plugins: pluginRegistry.plugins.map((plugin) => ({
-              id: plugin.id,
-              name: plugin.name,
-              description: plugin.description,
-              configUiHints: plugin.configUiHints,
-            })),
-          });
+          const schema = buildConfigSchema();
           return { ok: true, payloadJSON: JSON.stringify(schema) };
         }
         case "config.set": {
@@ -866,8 +842,9 @@ export function createBridgeHandlers(ctx: BridgeHandlersContext) {
             }
           }
 
-          const { cfg, storePath, store, entry, canonicalKey } =
-            loadSessionEntry(p.sessionKey);
+          const { cfg, storePath, store, entry } = loadSessionEntry(
+            p.sessionKey,
+          );
           const timeoutMs = resolveAgentTimeoutMs({
             cfg,
             overrideMs: p.timeoutMs,
@@ -944,8 +921,14 @@ export function createBridgeHandlers(ctx: BridgeHandlersContext) {
               clientRunId,
             });
 
+            // Normalize short main key alias to canonical form before store write
+            const agentId = resolveAgentIdFromSessionKey(p.sessionKey);
+            const mainSessionKey = resolveAgentMainSessionKey({ cfg, agentId });
+            const rawMainKey = normalizeMainKey(cfg.session?.mainKey);
+            const storeKey =
+              p.sessionKey === rawMainKey ? mainSessionKey : p.sessionKey;
             if (store) {
-              store[canonicalKey] = sessionEntry;
+              store[storeKey] = sessionEntry;
               if (storePath) {
                 await saveSessionStore(storePath, store);
               }
@@ -1060,13 +1043,16 @@ export function createBridgeHandlers(ctx: BridgeHandlersContext) {
           typeof obj.sessionKey === "string" ? obj.sessionKey.trim() : "";
         const cfg = loadConfig();
         const rawMainKey = normalizeMainKey(cfg.session?.mainKey);
-        const sessionKey =
-          sessionKeyRaw.length > 0 ? sessionKeyRaw : rawMainKey;
-        const { storePath, store, entry, canonicalKey } =
-          loadSessionEntry(sessionKey);
+        const sessionKey = sessionKeyRaw.length > 0 ? sessionKeyRaw : rawMainKey;
+        const { storePath, store, entry } = loadSessionEntry(sessionKey);
+        // Normalize short main key alias to canonical form before store write
+        const agentId = resolveAgentIdFromSessionKey(sessionKey);
+        const mainSessionKey = resolveAgentMainSessionKey({ cfg, agentId });
+        const storeKey =
+          sessionKey === rawMainKey ? mainSessionKey : sessionKey;
         const now = Date.now();
         const sessionId = entry?.sessionId ?? randomUUID();
-        store[canonicalKey] = {
+        store[storeKey] = {
           sessionId,
           updatedAt: now,
           thinkingLevel: entry?.thinkingLevel,
@@ -1130,7 +1116,14 @@ export function createBridgeHandlers(ctx: BridgeHandlersContext) {
 
         const channelRaw =
           typeof link?.channel === "string" ? link.channel.trim() : "";
-        const provider = normalizeProviderId(channelRaw) ?? undefined;
+        const channel = channelRaw.toLowerCase();
+        const provider =
+          channel === "whatsapp" ||
+          channel === "telegram" ||
+          channel === "signal" ||
+          channel === "imessage"
+            ? channel
+            : undefined;
         const to =
           typeof link?.to === "string" && link.to.trim()
             ? link.to.trim()
@@ -1140,11 +1133,20 @@ export function createBridgeHandlers(ctx: BridgeHandlersContext) {
         const sessionKeyRaw = (link?.sessionKey ?? "").trim();
         const sessionKey =
           sessionKeyRaw.length > 0 ? sessionKeyRaw : `node-${nodeId}`;
-        const { storePath, store, entry, canonicalKey } =
-          loadSessionEntry(sessionKey);
+        const { storePath, store, entry } = loadSessionEntry(sessionKey);
+        // Normalize short main key alias to canonical form before store write
+        const nodeCfg = loadConfig();
+        const nodeAgentId = resolveAgentIdFromSessionKey(sessionKey);
+        const nodeMainSessionKey = resolveAgentMainSessionKey({
+          cfg: nodeCfg,
+          agentId: nodeAgentId,
+        });
+        const nodeRawMainKey = normalizeMainKey(nodeCfg.session?.mainKey);
+        const nodeStoreKey =
+          sessionKey === nodeRawMainKey ? nodeMainSessionKey : sessionKey;
         const now = Date.now();
         const sessionId = entry?.sessionId ?? randomUUID();
-        store[canonicalKey] = {
+        store[nodeStoreKey] = {
           sessionId,
           updatedAt: now,
           thinkingLevel: entry?.thinkingLevel,
