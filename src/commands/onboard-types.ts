@@ -9,6 +9,7 @@ export type AuthChoice =
   | "claude-cli"
   | "claude-sdk"
   | "token"
+  | "chutes"
   | "openai-codex"
   | "openai-api-key"
   | "openrouter-api-key"

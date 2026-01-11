@@ -434,6 +434,7 @@ export async function runNonInteractiveOnboarding(
   } else if (
     authChoice === "token" ||
     authChoice === "oauth" ||
+    authChoice === "chutes" ||
     authChoice === "openai-codex" ||
     authChoice === "antigravity"
   ) {
