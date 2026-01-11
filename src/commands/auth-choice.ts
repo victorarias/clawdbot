@@ -5,7 +5,6 @@ import {
   CODEX_CLI_PROFILE_ID,
   ensureAuthProfileStore,
   listProfilesForProvider,
-  resolveAuthProfileOrder,
   upsertAuthProfile,
 } from "../agents/auth-profiles.js";
 import { DEFAULT_MODEL, DEFAULT_PROVIDER } from "../agents/defaults.js";
@@ -41,9 +40,9 @@ import {
   applyMinimaxApiConfig,
   applyMinimaxApiProviderConfig,
   applyMinimaxConfig,
+  applyMinimaxHostedConfig,
+  applyMinimaxHostedProviderConfig,
   applyMinimaxProviderConfig,
-  applyMoonshotConfig,
-  applyMoonshotProviderConfig,
   applyOpencodeZenConfig,
   applyOpencodeZenProviderConfig,
   applyOpenrouterConfig,
@@ -59,7 +58,6 @@ import {
   setAnthropicApiKey,
   setGeminiApiKey,
   setMinimaxApiKey,
-  setMoonshotApiKey,
   setOpencodeZenApiKey,
   setOpenrouterApiKey,
   setSyntheticApiKey,
@@ -148,6 +146,55 @@ async function applyDefaultModelChoice(params: {
   const next = params.applyProviderConfig(params.config);
   await params.noteAgentModel(params.defaultModel);
   return { config: next, agentModelOverride: params.defaultModel };
+}
+||||||| parent of 3da1afed6 (feat: add GitHub Copilot provider)
+const DEFAULT_KEY_PREVIEW = { head: 4, tail: 4 };
+
+function normalizeApiKeyInput(raw: string): string {
+  const trimmed = String(raw ?? "").trim();
+  if (!trimmed) return "";
+
+  // Handle shell-style assignments: export KEY="value" or KEY=value
+  const assignmentMatch = trimmed.match(
+    /^(?:export\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*(.+)$/,
+  );
+  const valuePart = assignmentMatch ? assignmentMatch[1].trim() : trimmed;
+
+  const unquoted =
+    valuePart.length >= 2 &&
+    ((valuePart.startsWith('"') && valuePart.endsWith('"')) ||
+      (valuePart.startsWith("'") && valuePart.endsWith("'")) ||
+      (valuePart.startsWith("`") && valuePart.endsWith("`")))
+      ? valuePart.slice(1, -1)
+      : valuePart;
+
+  const withoutSemicolon = unquoted.endsWith(";")
+    ? unquoted.slice(0, -1)
+    : unquoted;
+
+  return withoutSemicolon.trim();
+}
+
+const validateApiKeyInput = (value: unknown) =>
+  normalizeApiKeyInput(String(value ?? "")).length > 0 ? undefined : "Required";
+
+function formatApiKeyPreview(
+  raw: string,
+  opts: { head?: number; tail?: number } = {},
+): string {
+  const trimmed = raw.trim();
+  if (!trimmed) return "…";
+  const head = opts.head ?? DEFAULT_KEY_PREVIEW.head;
+  const tail = opts.tail ?? DEFAULT_KEY_PREVIEW.tail;
+  if (trimmed.length <= head + tail) {
+    const shortHead = Math.min(2, trimmed.length);
+    const shortTail = Math.min(2, trimmed.length - shortHead);
+    if (shortTail <= 0) {
+      return `${trimmed.slice(0, shortHead)}…`;
+    }
+    return `${trimmed.slice(0, shortHead)}…${trimmed.slice(-shortTail)}`;
+  }
+  return `${trimmed.slice(0, head)}…${trimmed.slice(-tail)}`;
 }
 export async function warnIfModelConfigLooksOff(
   config: ClawdbotConfig,
@@ -499,7 +546,7 @@ export async function applyAuthChoice(params: {
     const envKey = resolveEnvApiKey("openai");
     if (envKey) {
       const useExisting = await params.prompter.confirm({
-        message: `Use existing OPENAI_API_KEY (${envKey.source}, ${formatApiKeyPreview(envKey.apiKey)})?`,
+        message: `Use existing OPENAI_API_KEY (${envKey.source})?`,
         initialValue: true,
       });
       if (useExisting) {
@@ -520,9 +567,9 @@ export async function applyAuthChoice(params: {
 
     const key = await params.prompter.text({
       message: "Enter OpenAI API key",
-      validate: validateApiKeyInput,
+      validate: (value) => (value?.trim() ? undefined : "Required"),
     });
-    const trimmed = normalizeApiKeyInput(String(key));
+    const trimmed = String(key).trim();
     const result = upsertSharedEnvVar({
       key: "OPENAI_API_KEY",
       value: trimmed,
@@ -765,6 +812,116 @@ export async function applyAuthChoice(params: {
       agentModelOverride = MOONSHOT_DEFAULT_MODEL_REF;
       await noteAgentModel(MOONSHOT_DEFAULT_MODEL_REF);
     }
+||||||| parent of 3da1afed6 (feat: add GitHub Copilot provider)
+  } else if (params.authChoice === "openrouter-api-key") {
+    const store = ensureAuthProfileStore(params.agentDir, {
+      allowKeychainPrompt: false,
+    });
+    const profileOrder = resolveAuthProfileOrder({
+      cfg: nextConfig,
+      store,
+      provider: "openrouter",
+    });
+    const existingProfileId = profileOrder.find((profileId) =>
+      Boolean(store.profiles[profileId]),
+    );
+    const existingCred = existingProfileId
+      ? store.profiles[existingProfileId]
+      : undefined;
+    let profileId = "openrouter:default";
+    let mode: "api_key" | "oauth" | "token" = "api_key";
+    let hasCredential = false;
+
+    if (existingProfileId && existingCred?.type) {
+      profileId = existingProfileId;
+      mode =
+        existingCred.type === "oauth"
+          ? "oauth"
+          : existingCred.type === "token"
+            ? "token"
+            : "api_key";
+      hasCredential = true;
+    }
+
+    if (!hasCredential) {
+      const envKey = resolveEnvApiKey("openrouter");
+      if (envKey) {
+        const useExisting = await params.prompter.confirm({
+          message: `Use existing OPENROUTER_API_KEY (${envKey.source}, ${formatApiKeyPreview(envKey.apiKey)})?`,
+          initialValue: true,
+        });
+        if (useExisting) {
+          await setOpenrouterApiKey(envKey.apiKey, params.agentDir);
+          hasCredential = true;
+        }
+      }
+    }
+
+    if (!hasCredential) {
+      const key = await params.prompter.text({
+        message: "Enter OpenRouter API key",
+        validate: validateApiKeyInput,
+      });
+      await setOpenrouterApiKey(
+        normalizeApiKeyInput(String(key)),
+        params.agentDir,
+      );
+      hasCredential = true;
+    }
+
+    if (hasCredential) {
+      nextConfig = applyAuthProfileConfig(nextConfig, {
+        profileId,
+        provider: "openrouter",
+        mode,
+      });
+    }
+    if (params.setDefaultModel) {
+      nextConfig = applyOpenrouterConfig(nextConfig);
+      await params.prompter.note(
+        `Default model set to ${OPENROUTER_DEFAULT_MODEL_REF}`,
+        "Model configured",
+      );
+    } else {
+      nextConfig = applyOpenrouterProviderConfig(nextConfig);
+      agentModelOverride = OPENROUTER_DEFAULT_MODEL_REF;
+      await noteAgentModel(OPENROUTER_DEFAULT_MODEL_REF);
+    }
+  } else if (params.authChoice === "moonshot-api-key") {
+    let hasCredential = false;
+    const envKey = resolveEnvApiKey("moonshot");
+    if (envKey) {
+      const useExisting = await params.prompter.confirm({
+        message: `Use existing MOONSHOT_API_KEY (${envKey.source}, ${formatApiKeyPreview(envKey.apiKey)})?`,
+        initialValue: true,
+      });
+      if (useExisting) {
+        await setMoonshotApiKey(envKey.apiKey, params.agentDir);
+        hasCredential = true;
+      }
+    }
+    if (!hasCredential) {
+      const key = await params.prompter.text({
+        message: "Enter Moonshot API key",
+        validate: validateApiKeyInput,
+      });
+      await setMoonshotApiKey(
+        normalizeApiKeyInput(String(key)),
+        params.agentDir,
+      );
+    }
+    nextConfig = applyAuthProfileConfig(nextConfig, {
+      profileId: "moonshot:default",
+      provider: "moonshot",
+      mode: "api_key",
+    });
+    if (params.setDefaultModel) {
+      nextConfig = applyMoonshotConfig(nextConfig);
+    } else {
+      nextConfig = applyMoonshotProviderConfig(nextConfig);
+      agentModelOverride = MOONSHOT_DEFAULT_MODEL_REF;
+      await noteAgentModel(MOONSHOT_DEFAULT_MODEL_REF);
+    }
   } else if (params.authChoice === "openai-codex") {
     const isRemote = isRemoteEnvironment();
     await params.prompter.note(
@@ -992,25 +1149,11 @@ export async function applyAuthChoice(params: {
       await noteAgentModel(GOOGLE_GEMINI_DEFAULT_MODEL);
     }
   } else if (params.authChoice === "zai-api-key") {
-    let hasCredential = false;
-    const envKey = resolveEnvApiKey("zai");
-    if (envKey) {
-      const useExisting = await params.prompter.confirm({
-        message: `Use existing ZAI_API_KEY (${envKey.source}, ${formatApiKeyPreview(envKey.apiKey)})?`,
-        initialValue: true,
-      });
-      if (useExisting) {
-        await setZaiApiKey(envKey.apiKey, params.agentDir);
-        hasCredential = true;
-      }
-    }
-    if (!hasCredential) {
-      const key = await params.prompter.text({
-        message: "Enter Z.AI API key",
-        validate: validateApiKeyInput,
-      });
-      await setZaiApiKey(normalizeApiKeyInput(String(key)), params.agentDir);
-    }
+    const key = await params.prompter.text({
+      message: "Enter Z.AI API key",
+      validate: (value) => (value?.trim() ? undefined : "Required"),
+    });
+    await setZaiApiKey(String(key).trim(), params.agentDir);
     nextConfig = applyAuthProfileConfig(nextConfig, {
       profileId: "zai:default",
       provider: "zai",
@@ -1073,42 +1216,18 @@ export async function applyAuthChoice(params: {
       agentModelOverride = applied.agentModelOverride ?? agentModelOverride;
     }
   } else if (params.authChoice === "apiKey") {
-    let hasCredential = false;
-    const envKey = process.env.ANTHROPIC_API_KEY?.trim();
-    if (envKey) {
-      const useExisting = await params.prompter.confirm({
-        message: `Use existing ANTHROPIC_API_KEY (env, ${formatApiKeyPreview(envKey)})?`,
-        initialValue: true,
-      });
-      if (useExisting) {
-        await setAnthropicApiKey(envKey, params.agentDir);
-        hasCredential = true;
-      }
-    }
-    if (!hasCredential) {
-      const key = await params.prompter.text({
-        message: "Enter Anthropic API key",
-        validate: validateApiKeyInput,
-      });
-      await setAnthropicApiKey(
-        normalizeApiKeyInput(String(key)),
-        params.agentDir,
-      );
-    }
+    const key = await params.prompter.text({
+      message: "Enter Anthropic API key",
+      validate: (value) => (value?.trim() ? undefined : "Required"),
+    });
+    await setAnthropicApiKey(String(key).trim(), params.agentDir);
     nextConfig = applyAuthProfileConfig(nextConfig, {
       profileId: "anthropic:default",
       provider: "anthropic",
       mode: "api_key",
     });
-  } else if (
-    params.authChoice === "minimax-cloud" ||
-    params.authChoice === "minimax-api" ||
-    params.authChoice === "minimax-api-lightning"
-  ) {
-    const modelId =
-      params.authChoice === "minimax-api-lightning"
-        ? "MiniMax-M2.1-lightning"
-        : "MiniMax-M2.1";
+  } else if (params.authChoice === "minimax-cloud" || params.authChoice === "minimax-api") {
+    const modelId = "MiniMax-M2.1";
     let hasCredential = false;
     const envKey = resolveEnvApiKey("minimax");
     if (envKey) {
@@ -1124,9 +1243,12 @@ export async function applyAuthChoice(params: {
     if (!hasCredential) {
       const key = await params.prompter.text({
         message: "Enter MiniMax API key",
-        validate: (value) => (value?.trim() ? undefined : "Required"),
+        validate: validateApiKeyInput,
       });
-      await setMinimaxApiKey(String(key).trim(), params.agentDir);
+      await setMinimaxApiKey(
+        normalizeApiKeyInput(String(key)),
+        params.agentDir,
+      );
     }
     nextConfig = applyAuthProfileConfig(nextConfig, {
       profileId: "minimax:default",
@@ -1157,7 +1279,6 @@ export async function applyAuthChoice(params: {
       );
       return { config: nextConfig, agentModelOverride };
     }
-
     try {
       await githubCopilotLoginCommand({ yes: true }, params.runtime);
     } catch (err) {
@@ -1217,28 +1338,11 @@ export async function applyAuthChoice(params: {
       ].join("\n"),
       "OpenCode Zen",
     );
-    let hasCredential = false;
-    const envKey = resolveEnvApiKey("opencode");
-    if (envKey) {
-      const useExisting = await params.prompter.confirm({
-        message: `Use existing OPENCODE_API_KEY (${envKey.source}, ${formatApiKeyPreview(envKey.apiKey)})?`,
-        initialValue: true,
-      });
-      if (useExisting) {
-        await setOpencodeZenApiKey(envKey.apiKey, params.agentDir);
-        hasCredential = true;
-      }
-    }
-    if (!hasCredential) {
-      const key = await params.prompter.text({
-        message: "Enter OpenCode Zen API key",
-        validate: validateApiKeyInput,
-      });
-      await setOpencodeZenApiKey(
-        normalizeApiKeyInput(String(key)),
-        params.agentDir,
-      );
-    }
+    const key = await params.prompter.text({
+      message: "Enter OpenCode Zen API key",
+      validate: (value) => (value?.trim() ? undefined : "Required"),
+    });
+    await setOpencodeZenApiKey(String(key).trim(), params.agentDir);
     nextConfig = applyAuthProfileConfig(nextConfig, {
       profileId: "opencode:default",
       provider: "opencode",
