@@ -133,6 +133,14 @@ describe("parseModelRef", () => {
       model: "gemini-3-pro-preview",
     });
   });
+
+  it("normalizes claude-sdk/sonnet to claude-sonnet-4-5", () => {
+    const ref = parseModelRef("claude-sdk/sonnet", "claude-sdk");
+    expect(ref).toEqual({
+      provider: "claude-sdk",
+      model: "claude-sonnet-4-5",
+    });
+  });
 });
 
 describe("resolveHooksGmailModel", () => {

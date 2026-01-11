@@ -407,19 +407,134 @@ export async function runReplyAgent(params: {
           followupRun.run.config,
           resolveAgentIdFromSessionKey(followupRun.run.sessionKey),
         ),
-        run: (provider, model) =>
-          runEmbeddedPiAgent({
+        run: (provider, model) => {
+          const threadingToolContext = buildThreadingToolContext({
+            sessionCtx,
+            config: followupRun.run.config,
+            hasRepliedRef: opts?.hasRepliedRef,
+          });
+          if (isCliProvider(provider, followupRun.run.config)) {
+            const startedAt = Date.now();
+            emitAgentEvent({
+              runId,
+              stream: "lifecycle",
+              data: {
+                phase: "start",
+                startedAt,
+              },
+            });
+            const cliSessionId = getCliSessionId(sessionEntry, provider);
+            return runCliAgent({
+              sessionId: followupRun.run.sessionId,
+              sessionKey,
+              sessionFile: followupRun.run.sessionFile,
+              workspaceDir: followupRun.run.workspaceDir,
+              config: followupRun.run.config,
+              prompt: memoryFlushSettings.prompt,
+              provider,
+              model,
+              thinkLevel: followupRun.run.thinkLevel,
+              timeoutMs: followupRun.run.timeoutMs,
+              runId,
+              extraSystemPrompt: flushSystemPrompt,
+              ownerNumbers: followupRun.run.ownerNumbers,
+              cliSessionId,
+            })
+              .then((result) => {
+                emitAgentEvent({
+                  runId,
+                  stream: "lifecycle",
+                  data: {
+                    phase: "end",
+                    startedAt,
+                    endedAt: Date.now(),
+                  },
+                });
+                return result;
+              })
+              .catch((err) => {
+                emitAgentEvent({
+                  runId,
+                  stream: "lifecycle",
+                  data: {
+                    phase: "error",
+                    startedAt,
+                    endedAt: Date.now(),
+                    error: err instanceof Error ? err.message : String(err),
+                  },
+                });
+                throw err;
+              });
+          }
+          if (isClaudeSdkProvider(provider)) {
+            const startedAt = Date.now();
+            emitAgentEvent({
+              runId,
+              stream: "lifecycle",
+              data: {
+                phase: "start",
+                startedAt,
+              },
+            });
+            const sdkSessionId = getClaudeSdkSessionId(sessionEntry, provider);
+            return runClaudeSdkAgent({
+              sessionId: followupRun.run.sessionId,
+              sdkSessionId,
+              sessionKey,
+              messageProvider:
+                sessionCtx.Provider?.trim().toLowerCase() || undefined,
+              agentAccountId: sessionCtx.AccountId,
+              ...threadingToolContext,
+              sessionFile: followupRun.run.sessionFile,
+              workspaceDir: followupRun.run.workspaceDir,
+              agentDir: followupRun.run.agentDir,
+              config: followupRun.run.config,
+              skillsSnapshot: followupRun.run.skillsSnapshot,
+              prompt: memoryFlushSettings.prompt,
+              extraSystemPrompt: flushSystemPrompt,
+              ownerNumbers: followupRun.run.ownerNumbers,
+              provider,
+              model,
+              authProfileId: followupRun.run.authProfileId,
+              thinkLevel: followupRun.run.thinkLevel,
+              verboseLevel: followupRun.run.verboseLevel,
+              timeoutMs: followupRun.run.timeoutMs,
+              runId,
+            })
+              .then((result) => {
+                emitAgentEvent({
+                  runId,
+                  stream: "lifecycle",
+                  data: {
+                    phase: "end",
+                    startedAt,
+                    endedAt: Date.now(),
+                  },
+                });
+                return result;
+              })
+              .catch((err) => {
+                emitAgentEvent({
+                  runId,
+                  stream: "lifecycle",
+                  data: {
+                    phase: "error",
+                    startedAt,
+                    endedAt: Date.now(),
+                    error: err instanceof Error ? err.message : String(err),
+                  },
+                });
+                throw err;
+              });
+          }
+          return runEmbeddedPiAgent({
             sessionId: followupRun.run.sessionId,
             sessionKey,
             messageProvider:
               sessionCtx.Provider?.trim().toLowerCase() || undefined,
             agentAccountId: sessionCtx.AccountId,
             // Provider threading context for tool auto-injection
-            ...buildThreadingToolContext({
-              sessionCtx,
-              config: followupRun.run.config,
-              hasRepliedRef: opts?.hasRepliedRef,
-            }),
+            ...threadingToolContext,
             sessionFile: followupRun.run.sessionFile,
             workspaceDir: followupRun.run.workspaceDir,
             agentDir: followupRun.run.agentDir,
@@ -448,7 +563,8 @@ export async function runReplyAgent(params: {
                 }
               }
             },
-          }),
+          });
+        },
       });
       let memoryFlushCompactionCount =
         activeSessionEntry?.compactionCount ??
