@@ -2,6 +2,11 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { type ClawdbotConfig, loadConfig } from "../config/config.js";
+import type { ModelsConfig as ModelsConfigShape } from "../config/types.js";
+import {
+  DEFAULT_COPILOT_API_BASE_URL,
+  resolveCopilotApiToken,
+} from "../providers/github-copilot-token.js";
 import { resolveClawdbotAgentDir } from "./agent-paths.js";
 import {
   normalizeProviders,
@@ -83,6 +88,7 @@ export async function ensureClawdbotModelsJson(
   agentDirOverride?: string,
 ): Promise<{ agentDir: string; wrote: boolean }> {
   const cfg = config ?? loadConfig();
+
   const agentDir = agentDirOverride?.trim()
     ? agentDirOverride.trim()
     : resolveClawdbotAgentDir();
