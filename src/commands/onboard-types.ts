@@ -7,6 +7,7 @@ export type AuthChoice =
   | "oauth"
   | "setup-token"
   | "claude-cli"
+  | "claude-sdk"
   | "token"
   | "openai-codex"
   | "openai-api-key"

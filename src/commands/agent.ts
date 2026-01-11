@@ -4,6 +4,11 @@ import {
   resolveAgentWorkspaceDir,
 } from "../agents/agent-scope.js";
 import { ensureAuthProfileStore } from "../agents/auth-profiles.js";
+import { runClaudeSdkAgent } from "../agents/claude-sdk-runner.js";
+import {
+  getClaudeSdkSessionId,
+  setClaudeSdkSessionId,
+} from "../agents/claude-sdk-session.js";
 import { runCliAgent } from "../agents/cli-runner.js";
 import { getCliSessionId, setCliSessionId } from "../agents/cli-session.js";
 import { lookupContextTokens } from "../agents/context.js";
@@ -16,6 +21,7 @@ import { loadModelCatalog } from "../agents/model-catalog.js";
 import { runWithModelFallback } from "../agents/model-fallback.js";
 import {
   buildAllowedModelSet,
+  isClaudeSdkProvider,
   isCliProvider,
   modelKey,
   resolveConfiguredModelRef,
@@ -462,6 +468,33 @@ export async function agentCommand(
             images: opts.images,
           });
         }
+        if (isClaudeSdkProvider(providerOverride)) {
+          const sdkSessionId = getClaudeSdkSessionId(
+            sessionEntry,
+            providerOverride,
+          );
+          return runClaudeSdkAgent({
+            sessionId,
+            sdkSessionId,
+            sessionKey,
+            messageProvider,
+            sessionFile,
+            workspaceDir,
+            agentDir,
+            config: cfg,
+            skillsSnapshot,
+            prompt: body,
+            images: opts.images,
+            provider: providerOverride,
+            model: modelOverride,
+            authProfileId: sessionEntry?.authProfileOverride,
+            thinkLevel: resolvedThinkLevel,
+            verboseLevel: resolvedVerboseLevel,
+            timeoutMs,
+            runId,
+            extraSystemPrompt: opts.extraSystemPrompt,
+          });
+        }
         return runEmbeddedPiAgent({
           sessionId,
           sessionKey,
@@ -557,6 +590,10 @@ export async function agentCommand(
     if (isCliProvider(providerUsed, cfg)) {
       const cliSessionId = result.meta.agentMeta?.sessionId?.trim();
       if (cliSessionId) setCliSessionId(next, providerUsed, cliSessionId);
+    }
+    if (isClaudeSdkProvider(providerUsed)) {
+      const sdkSessionId = result.meta.agentMeta?.sessionId?.trim();
+      if (sdkSessionId) setClaudeSdkSessionId(next, providerUsed, sdkSessionId);
     }
     next.abortedLastRun = result.meta.aborted ?? false;
     if (hasNonzeroUsage(usage)) {

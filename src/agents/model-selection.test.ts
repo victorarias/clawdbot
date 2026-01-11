@@ -72,6 +72,14 @@ describe("parseModelRef", () => {
       model: "claude-opus-4-5",
     });
   });
+
+  it("normalizes claude-sdk/sonnet to claude-sonnet-4-5", () => {
+    const ref = parseModelRef("claude-sdk/sonnet", "claude-sdk");
+    expect(ref).toEqual({
+      provider: "claude-sdk",
+      model: "claude-sonnet-4-5",
+    });
+  });
 });
 
 describe("resolveHooksGmailModel", () => {

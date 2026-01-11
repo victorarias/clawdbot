@@ -37,6 +37,8 @@ import {
 } from "./google-gemini-model-default.js";
 import {
   applyAuthProfileConfig,
+  applyClaudeSdkConfig,
+  applyClaudeSdkProviderConfig,
   applyMinimaxApiConfig,
   applyMinimaxApiProviderConfig,
   applyMinimaxConfig,
@@ -48,6 +50,7 @@ import {
   applyOpenrouterConfig,
   applyOpenrouterProviderConfig,
   applyZaiConfig,
+  CLAUDE_SDK_DEFAULT_MODEL_REF,
   MINIMAX_HOSTED_MODEL_REF,
   OPENROUTER_DEFAULT_MODEL_REF,
   setAnthropicApiKey,
@@ -118,7 +121,7 @@ export async function warnIfModelConfigLooksOff(
   const hasProfile = listProfilesForProvider(store, ref.provider).length > 0;
   const envKey = resolveEnvApiKey(ref.provider);
   const customKey = getCustomProviderApiKey(config, ref.provider);
-  if (!hasProfile && !envKey && !customKey) {
+  if (ref.provider !== "claude-sdk" && !hasProfile && !envKey && !customKey) {
     warnings.push(
       `No auth configured for provider "${ref.provider}". The agent may fail until credentials are added.`,
     );
@@ -158,7 +161,86 @@ export async function applyAuthChoice(params: {
     );
   };
 
-  if (params.authChoice === "claude-cli") {
+  if (params.authChoice === "claude-sdk") {
+    const store = ensureAuthProfileStore(params.agentDir, {
+      allowKeychainPrompt: false,
+    });
+    const hasClaudeCli = Boolean(store.profiles[CLAUDE_CLI_PROFILE_ID]);
+    if (!hasClaudeCli && process.platform === "darwin") {
+      await params.prompter.note(
+        [
+          "macOS will show a Keychain prompt next.",
+          'Choose "Always Allow" so the launchd gateway can start without prompts.',
+          'If you choose "Allow" or "Deny", each restart will block on a Keychain alert.',
+        ].join("\n"),
+        "Claude Code Keychain",
+      );
+      const proceed = await params.prompter.confirm({
+        message: "Check Keychain for Claude Code credentials now?",
+        initialValue: true,
+      });
+      if (!proceed) {
+        return { config: nextConfig, agentModelOverride };
+      }
+    }
+
+    const storeWithKeychain = hasClaudeCli
+      ? store
+      : ensureAuthProfileStore(params.agentDir, {
+          allowKeychainPrompt: true,
+        });
+
+    if (!storeWithKeychain.profiles[CLAUDE_CLI_PROFILE_ID]) {
+      if (process.stdin.isTTY) {
+        const runNow = await params.prompter.confirm({
+          message: "Run `claude setup-token` now?",
+          initialValue: true,
+        });
+        if (runNow) {
+          const res = await (async () => {
+            const { spawnSync } = await import("node:child_process");
+            return spawnSync("claude", ["setup-token"], { stdio: "inherit" });
+          })();
+          if (res.error) {
+            await params.prompter.note(
+              `Failed to run claude: ${String(res.error)}`,
+              "Claude setup-token",
+            );
+          }
+        }
+      } else {
+        await params.prompter.note(
+          "`claude setup-token` requires an interactive TTY.",
+          "Claude setup-token",
+        );
+      }
+
+      const refreshed = ensureAuthProfileStore(params.agentDir, {
+        allowKeychainPrompt: true,
+      });
+      if (!refreshed.profiles[CLAUDE_CLI_PROFILE_ID]) {
+        await params.prompter.note(
+          process.platform === "darwin"
+            ? 'No Claude Code credentials found in Keychain ("Claude Code-credentials") or ~/.claude/.credentials.json.'
+            : "No Claude Code credentials found at ~/.claude/.credentials.json.",
+          "Claude Code auth",
+        );
+        return { config: nextConfig, agentModelOverride };
+      }
+    }
+
+    if (params.setDefaultModel) {
+      nextConfig = applyClaudeSdkConfig(nextConfig);
+      await params.prompter.note(
+        `Default model set to ${CLAUDE_SDK_DEFAULT_MODEL_REF}`,
+        "Model configured",
+      );
+    } else {
+      nextConfig = applyClaudeSdkProviderConfig(nextConfig);
+      agentModelOverride = CLAUDE_SDK_DEFAULT_MODEL_REF;
+      await noteAgentModel(CLAUDE_SDK_DEFAULT_MODEL_REF);
+    }
+  } else if (params.authChoice === "claude-cli") {
     const store = ensureAuthProfileStore(params.agentDir, {
       allowKeychainPrompt: false,
     });
@@ -816,6 +898,8 @@ export function resolvePreferredProviderForAuthChoice(
     case "token":
     case "apiKey":
       return "anthropic";
+    case "claude-sdk":
+      return "claude-sdk";
     case "openai-codex":
     case "codex-cli":
       return "openai-codex";

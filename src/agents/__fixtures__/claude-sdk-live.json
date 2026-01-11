@@ -1,0 +1,14 @@
+{
+  "createdAt": "2026-01-11T17:55:39.186Z",
+  "provider": "claude-sdk",
+  "model": "claude-opus-4-5",
+  "prompt": "Use the mcp__clawdbot-tools__read tool to read ./sample.txt. Reply with the exact file contents only, with no extra text.",
+  "fileContent": "claude-sdk-live fixture: hello from clawdbot",
+  "responseText": "claude-sdk-live fixture: hello from clawdbot",
+  "usage": {
+    "input": 4,
+    "output": 80,
+    "cacheRead": 6833,
+    "cacheWrite": 6925
+  }
+}

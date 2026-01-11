@@ -211,6 +211,16 @@ clawdbot onboard --non-interactive \
   --gateway-bind loopback
 ```
 
+Claude Agent SDK example (Claude Code login):
+
+```bash
+clawdbot onboard --non-interactive \
+  --mode local \
+  --auth-choice claude-sdk \
+  --gateway-port 18789 \
+  --gateway-bind loopback
+```
+
 Add agent (non‑interactive) example:
 
 ```bash

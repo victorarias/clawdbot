@@ -20,6 +20,38 @@ type DiscoveredModel = {
 
 let modelCatalogPromise: Promise<ModelCatalogEntry[]> | null = null;
 
+const CLAUDE_SDK_MODEL_CATALOG: ModelCatalogEntry[] = [
+  { id: "claude-opus-4-5", name: "Claude Opus 4.5", provider: "claude-sdk" },
+  {
+    id: "claude-sonnet-4-5",
+    name: "Claude Sonnet 4.5",
+    provider: "claude-sdk",
+  },
+  { id: "claude-haiku-3-5", name: "Claude Haiku 3.5", provider: "claude-sdk" },
+];
+
+function shouldIncludeClaudeSdk(cfg?: ClawdbotConfig): boolean {
+  const modelConfig = cfg?.agents?.defaults?.model;
+  const primary =
+    typeof modelConfig === "string"
+      ? modelConfig
+      : (modelConfig?.primary ?? "");
+  const fallbacks =
+    typeof modelConfig === "object" && Array.isArray(modelConfig.fallbacks)
+      ? modelConfig.fallbacks
+      : [];
+  const entries = [primary, ...fallbacks].map((entry) =>
+    String(entry ?? "").trim(),
+  );
+  if (entries.some((entry) => entry.startsWith("claude-sdk/"))) return true;
+  const allowlist = Object.keys(cfg?.agents?.defaults?.models ?? {});
+  return allowlist.some((entry) =>
+    String(entry ?? "")
+      .trim()
+      .startsWith("claude-sdk/"),
+  );
+}
+
 export function resetModelCatalogCacheForTest() {
   modelCatalogPromise = null;
 }
@@ -61,6 +93,10 @@ export async function loadModelCatalog(params?: {
         const reasoning =
           typeof entry?.reasoning === "boolean" ? entry.reasoning : undefined;
         models.push({ id, name, provider, contextWindow, reasoning });
+      }
+
+      if (shouldIncludeClaudeSdk(cfg)) {
+        models.push(...CLAUDE_SDK_MODEL_CATALOG);
       }
 
       if (models.length === 0) {

@@ -110,6 +110,7 @@ export type SessionEntry = {
   contextTokens?: number;
   compactionCount?: number;
   cliSessionIds?: Record<string, string>;
+  sdkSessionIds?: Record<string, string>;
   claudeCliSessionId?: string;
   label?: string;
   displayName?: string;

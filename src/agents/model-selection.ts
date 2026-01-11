@@ -38,12 +38,19 @@ export function isCliProvider(provider: string, cfg?: ClawdbotConfig): boolean {
   );
 }
 
-function normalizeAnthropicModelId(model: string): string {
+export function isClaudeSdkProvider(provider: string): boolean {
+  return normalizeProviderId(provider) === "claude-sdk";
+}
+
+function normalizeClaudeModelId(model: string): string {
   const trimmed = model.trim();
   if (!trimmed) return trimmed;
   const lower = trimmed.toLowerCase();
   if (lower === "opus-4.5") return "claude-opus-4-5";
   if (lower === "sonnet-4.5") return "claude-sonnet-4-5";
+  if (lower === "opus") return "claude-opus-4-5";
+  if (lower === "sonnet") return "claude-sonnet-4-5";
+  if (lower === "haiku") return "claude-haiku-3-5";
   return trimmed;
 }
 
@@ -57,7 +64,9 @@ export function parseModelRef(
   if (slash === -1) {
     const provider = normalizeProviderId(defaultProvider);
     const model =
-      provider === "anthropic" ? normalizeAnthropicModelId(trimmed) : trimmed;
+      provider === "anthropic" || provider === "claude-sdk"
+        ? normalizeClaudeModelId(trimmed)
+        : trimmed;
     return { provider, model };
   }
   const providerRaw = trimmed.slice(0, slash).trim();
@@ -65,7 +74,9 @@ export function parseModelRef(
   const model = trimmed.slice(slash + 1).trim();
   if (!provider || !model) return null;
   const normalizedModel =
-    provider === "anthropic" ? normalizeAnthropicModelId(model) : model;
+    provider === "anthropic" || provider === "claude-sdk"
+      ? normalizeClaudeModelId(model)
+      : model;
   return { provider, model: normalizedModel };
 }
 

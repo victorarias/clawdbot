@@ -1,0 +1,8 @@
+{
+  "createdAt": "2026-01-11T17:55:53.683Z",
+  "provider": "claude-sdk",
+  "model": "claude-opus-4-5",
+  "prompt": "Clawdbot live tool probe (local, safe): use the tool named `mcp__clawdbot-tools__read` with JSON arguments {\"path\":\"/tmp/clawdbot-live-claude-sdk-2KngHU/workspace/.clawdbot-live-claude-sdk.d9efec2f-1460-46f6-9deb-f315083d82ae.txt\"}. Then reply with the exact file contents only.",
+  "probeContent": "claude-sdk gateway live probe: d9efec2f-1460-46f6-9deb-f315083d82ae",
+  "responseText": "claude-sdk gateway live probe: d9efec2f-1460-46f6-9deb-f315083d82ae"
+}

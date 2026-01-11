@@ -205,6 +205,44 @@ CLAWDBOT_LIVE_TEST=1 CLAWDBOT_LIVE_CLI_BACKEND=1 \
   pnpm test:live src/gateway/gateway-cli-backend.live.test.ts
 ```
 
+## Live: Gateway + Claude Agent SDK
+
+- Test: `src/gateway/gateway-claude-sdk.live.test.ts`
+- Goal: verify the gateway agent pipeline works end-to-end with Claude Agent SDK (MCP tool probe).
+- Enable:
+  - `CLAWDBOT_LIVE_TEST=1` or `LIVE=1`
+  - `CLAWDBOT_LIVE_CLAUDE_SDK_GATEWAY=1`
+- Model override (optional):
+  - `CLAWDBOT_LIVE_CLAUDE_SDK_MODEL="claude-sdk/claude-opus-4-5"`
+- Notes:
+  - Records a response fixture at `src/gateway/__fixtures__/claude-sdk-gateway-live.json` when run live.
+  - If the fixture exists, the test can replay without live access.
+
+Example:
+
+```bash
+CLAWDBOT_LIVE_TEST=1 CLAWDBOT_LIVE_CLAUDE_SDK_GATEWAY=1 \
+  pnpm test:live src/gateway/gateway-claude-sdk.live.test.ts
+```
+
+## Live: Claude Agent SDK (Claude Code login)
+
+- Test: `src/agents/claude-sdk.live.test.ts`
+- Goal: verify Claude Agent SDK can call Clawdbot MCP tools (read probe) via Claude Code auth.
+- Enable:
+  - `CLAWDBOT_LIVE_TEST=1` or `LIVE=1`
+  - `CLAWDBOT_LIVE_CLAUDE_SDK=1`
+- Notes:
+  - Relies on Claude CLI authentication (same creds as `claude` / Claude Code).
+  - Records a response fixture at `src/agents/__fixtures__/claude-sdk-live.json` when run live.
+  - If the fixture exists, the test can replay without live access.
+
+Example:
+
+```bash
+CLAWDBOT_LIVE_TEST=1 CLAWDBOT_LIVE_CLAUDE_SDK=1 pnpm test:live src/agents/claude-sdk.live.test.ts
+```
+
 ### Recommended live recipes
 
 Narrow, explicit allowlists are fastest and least flaky:

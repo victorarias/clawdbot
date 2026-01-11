@@ -32,6 +32,7 @@ import { applyGoogleGeminiModelDefault } from "./google-gemini-model-default.js"
 import { healthCommand } from "./health.js";
 import {
   applyAuthProfileConfig,
+  applyClaudeSdkConfig,
   applyMinimaxApiConfig,
   applyMinimaxConfig,
   applyMinimaxHostedConfig,
@@ -323,6 +324,20 @@ export async function runNonInteractiveOnboarding(
       mode: "api_key",
     });
     nextConfig = applyMinimaxApiConfig(nextConfig);
+  } else if (authChoice === "claude-sdk") {
+    const store = ensureAuthProfileStore(undefined, {
+      allowKeychainPrompt: false,
+    });
+    if (!store.profiles[CLAUDE_CLI_PROFILE_ID]) {
+      runtime.error(
+        process.platform === "darwin"
+          ? 'No Claude Code credentials found. Run interactive onboarding to approve Keychain access for "Claude Code-credentials".'
+          : "No Claude Code credentials found at ~/.claude/.credentials.json",
+      );
+      runtime.exit(1);
+      return;
+    }
+    nextConfig = applyClaudeSdkConfig(nextConfig);
   } else if (authChoice === "claude-cli") {
     const store = ensureAuthProfileStore(undefined, {
       allowKeychainPrompt: false,

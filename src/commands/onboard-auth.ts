@@ -132,6 +132,7 @@ export async function setMinimaxApiKey(key: string, agentDir?: string) {
 
 export const ZAI_DEFAULT_MODEL_REF = "zai/glm-4.7";
 export const OPENROUTER_DEFAULT_MODEL_REF = "openrouter/auto";
+export const CLAUDE_SDK_DEFAULT_MODEL_REF = "claude-sdk/claude-opus-4-5";
 
 export async function setZaiApiKey(key: string, agentDir?: string) {
   // Write to the multi-agent path so gateway finds credentials on startup
@@ -204,6 +205,56 @@ export function applyOpenrouterProviderConfig(
       defaults: {
         ...cfg.agents?.defaults,
         models,
+      },
+    },
+  };
+}
+
+export function applyClaudeSdkProviderConfig(
+  cfg: ClawdbotConfig,
+): ClawdbotConfig {
+  const models = { ...cfg.agents?.defaults?.models };
+  models[CLAUDE_SDK_DEFAULT_MODEL_REF] = {
+    ...models[CLAUDE_SDK_DEFAULT_MODEL_REF],
+    alias: models[CLAUDE_SDK_DEFAULT_MODEL_REF]?.alias ?? "Claude SDK Opus",
+  };
+  return {
+    ...cfg,
+    agents: {
+      ...cfg.agents,
+      defaults: {
+        ...cfg.agents?.defaults,
+        models,
+      },
+    },
+  };
+}
+
+export function applyClaudeSdkConfig(cfg: ClawdbotConfig): ClawdbotConfig {
+  const models = { ...cfg.agents?.defaults?.models };
+  models[CLAUDE_SDK_DEFAULT_MODEL_REF] = {
+    ...models[CLAUDE_SDK_DEFAULT_MODEL_REF],
+    alias: models[CLAUDE_SDK_DEFAULT_MODEL_REF]?.alias ?? "Claude SDK Opus",
+  };
+
+  const existingModel = cfg.agents?.defaults?.model;
+  return {
+    ...cfg,
+    agents: {
+      ...cfg.agents,
+      defaults: {
+        ...cfg.agents?.defaults,
+        models,
+        model: {
+          ...(existingModel &&
+          "fallbacks" in (existingModel as Record<string, unknown>)
+            ? {
+                fallbacks: (existingModel as { fallbacks?: string[] })
+                  .fallbacks,
+              }
+            : undefined),
+          primary: CLAUDE_SDK_DEFAULT_MODEL_REF,
+        },
       },
     },
   };

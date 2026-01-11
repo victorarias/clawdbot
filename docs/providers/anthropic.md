@@ -56,6 +56,29 @@ clawdbot onboard --auth-choice claude-cli
 }
 ```
 
+## Option C: Claude Agent SDK (Claude Code login)
+
+**Best for:** using your Claude subscription with full Clawdbot tools (no Claude Code built-ins).
+
+### CLI setup
+
+```bash
+# Uses the Claude Code runtime + your Claude login
+clawdbot onboard --auth-choice claude-sdk
+```
+
+### Config snippet
+
+```json5
+{
+  agents: { defaults: { model: { primary: "claude-sdk/claude-opus-4-5" } } }
+}
+```
+
+Notes:
+- Requires Claude Code installed and logged in (`claude` works in your shell).
+- Uses Clawdbot tools only (Claude Code built-ins are disabled).
+
 ## Notes
 
 - The wizard can run `claude setup-token` on the gateway host and store the token.
