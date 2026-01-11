@@ -28,8 +28,10 @@ describe("buildAuthChoiceOptions", () => {
     });
 
     const claudeCli = options.find((opt) => opt.value === "claude-cli");
+    const claudeSdk = options.find((opt) => opt.value === "claude-sdk");
     expect(claudeCli).toBeDefined();
     expect(claudeCli?.hint).toBe("requires Keychain access");
+    expect(claudeSdk).toBeDefined();
   });
 
   it("skips missing Claude CLI option off macOS", () => {
@@ -65,7 +67,9 @@ describe("buildAuthChoiceOptions", () => {
     });
 
     const claudeCli = options.find((opt) => opt.value === "claude-cli");
+    const claudeSdk = options.find((opt) => opt.value === "claude-sdk");
     expect(claudeCli?.hint).toContain("token ok");
+    expect(claudeSdk?.hint).toContain("token ok");
   });
 
   it("includes Z.AI (GLM) auth choice", () => {

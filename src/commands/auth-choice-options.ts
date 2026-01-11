@@ -171,10 +171,20 @@ export function buildAuthChoiceOptions(params: {
       label: "Anthropic token (Claude CLI)",
       hint: formatOAuthHint(claudeCli.expires),
     });
+    options.push({
+      value: "claude-sdk",
+      label: "Claude Agent SDK (Claude Code login)",
+      hint: formatOAuthHint(claudeCli.expires),
+    });
   } else if (params.includeClaudeCliIfMissing && platform === "darwin") {
     options.push({
       value: "claude-cli",
       label: "Anthropic token (Claude CLI)",
+      hint: "requires Keychain access",
+    });
+    options.push({
+      value: "claude-sdk",
+      label: "Claude Agent SDK (Claude Code login)",
       hint: "requires Keychain access",
     });
   }
