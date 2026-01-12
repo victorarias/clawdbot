@@ -187,6 +187,19 @@ export async function setSyntheticApiKey(key: string, agentDir?: string) {
   });
 }
 
+export async function setMoonshotApiKey(key: string, agentDir?: string) {
+  // Write to the multi-agent path so gateway finds credentials on startup
+  upsertAuthProfile({
+    profileId: "moonshot:default",
+    credential: {
+      type: "api_key",
+      provider: "moonshot",
+      key,
+    },
+    agentDir: agentDir ?? resolveDefaultAgentDir(),
+  });
+}
+
 export const ZAI_DEFAULT_MODEL_REF = "zai/glm-4.7";
 export const OPENROUTER_DEFAULT_MODEL_REF = "openrouter/auto";
 export const CLAUDE_SDK_DEFAULT_MODEL_REF = "claude-sdk/claude-opus-4-5";
@@ -490,7 +503,6 @@ export function applySyntheticConfig(cfg: ClawdbotConfig): ClawdbotConfig {
     },
   };
 }
-
 export function applyAuthProfileConfig(
   cfg: ClawdbotConfig,
   params: {
