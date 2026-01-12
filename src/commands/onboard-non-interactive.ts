@@ -300,6 +300,7 @@ export async function runNonInteractiveOnboarding(
       mode: "api_key",
     });
     nextConfig = applyOpenrouterConfig(nextConfig);
+<<<<<<< HEAD
   } else if (authChoice === "moonshot-api-key") {
     const resolved = await resolveNonInteractiveApiKey({
       provider: "moonshot",
