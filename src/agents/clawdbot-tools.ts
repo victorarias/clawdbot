@@ -59,6 +59,14 @@ export function createClawdbotTools(options?: {
     config: options?.config,
     agentSessionKey: options?.agentSessionKey,
   });
+  const memorySearchTool = createMemorySearchTool({
+    config: options?.config,
+    agentSessionKey: options?.agentSessionKey,
+  });
+  const memoryGetTool = createMemoryGetTool({
+    config: options?.config,
+    agentSessionKey: options?.agentSessionKey,
+  });
   const tools: AnyAgentTool[] = [
     createBrowserTool({
       defaultControlUrl: options?.browserControlUrl,
