@@ -11,9 +11,9 @@ import {
   ensureAuthProfileStore,
   listProfilesForProvider,
 } from "./auth-profiles.js";
+import type { ProviderConfig } from "./models-config.providers.js";
 import {
   normalizeProviders,
-  type ProviderConfig,
   resolveImplicitProviders,
 } from "./models-config.providers.js";
 
@@ -29,14 +29,15 @@ function mergeProviderModels(
   implicit: ProviderConfig,
   explicit: ProviderConfig,
 ): ProviderConfig {
-  const implicitModels = Array.isArray(implicit.models) ? implicit.models : [];
-  const explicitModels = Array.isArray(explicit.models) ? explicit.models : [];
-  if (implicitModels.length === 0) return { ...implicit, ...explicit };
+  const implicitModels = implicit.models ?? [];
+  const explicitModels = explicit.models ?? [];
+  if (!implicitModels.length || !explicitModels.length) {
+    return { ...implicit, ...explicit };
+  }
 
-  const getId = (model: unknown): string => {
-    if (!model || typeof model !== "object") return "";
-    const id = (model as { id?: unknown }).id;
-    return typeof id === "string" ? id.trim() : "";
+  const getId = (model: ProviderConfig["models"][number]): string | null => {
+    const id = model.id?.trim();
+    return id?.length ? id : null;
   };
   const seen = new Set(explicitModels.map(getId).filter(Boolean));
 
@@ -90,7 +91,9 @@ async function maybeBuildCopilotProvider(params: {
   env?: NodeJS.ProcessEnv;
 }): Promise<ProviderConfig | null> {
   const env = params.env ?? process.env;
-  const authStore = ensureAuthProfileStore(params.agentDir);
+  const authStore = ensureAuthProfileStore(params.agentDir, {
+    allowKeychainPrompt: false,
+  });
   const hasProfile =
     listProfilesForProvider(authStore, "github-copilot").length > 0;
   const envToken = env.COPILOT_GITHUB_TOKEN ?? env.GH_TOKEN ?? env.GITHUB_TOKEN;
@@ -151,6 +154,7 @@ export async function ensureClawdbotModelsJson(
   const agentDir = agentDirOverride?.trim()
     ? agentDirOverride.trim()
     : resolveClawdbotAgentDir();
+
   const explicitProviders = cfg.models?.providers ?? {};
   const implicitProviders = resolveImplicitProviders({ agentDir });
   const providers: Record<string, ProviderConfig> = mergeProviders({
@@ -178,7 +182,10 @@ export async function ensureClawdbotModelsJson(
         string,
         NonNullable<ModelsConfig["providers"]>[string]
       >;
-      mergedProviders = { ...existingProviders, ...providers };
+      mergedProviders = mergeProviders({
+        implicit: existingProviders,
+        explicit: providers,
+      });
     }
   }
 
