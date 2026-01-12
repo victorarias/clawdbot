@@ -80,9 +80,6 @@
 - Onboarding/CLI: group model/auth choice by provider and label Z.AI as GLM 4.7.
 - Onboarding/Docs: add Moonshot AI (Kimi K2) auth choice + config example.
 - CLI/Onboarding: prompt to reuse detected API keys for Moonshot/MiniMax/Z.AI/Gemini/Anthropic/OpenCode.
-- CLI/Onboarding: move MiniMax to the top of the provider list.
-- CLI/Onboarding: add MiniMax M2.1 Lightning auth choice.
-- CLI/Onboarding: show key previews when reusing detected API keys.
 - Auto-reply: add compact `/model` picker (models + available providers) and show provider endpoints in `/model status`.
 - Control UI: add Config tab model presets (MiniMax M2.1, GLM 4.7, Kimi) for one-click setup.
 - Plugins: add extension loader (tools/RPC/CLI/services), discovery paths, and config schema + Control UI labels (uiHints).
