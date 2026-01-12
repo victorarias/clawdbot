@@ -228,12 +228,17 @@ export function buildAuthChoiceOptions(params: {
     label: "OpenCode Zen (multi-model proxy)",
     hint: "Claude, GPT, Gemini via opencode.ai/zen",
   });
+  options.push({
+    value: "minimax-cloud",
+    label: "MiniMax M2.1 (minimax.io) — Anthropic-compatible",
+  });
   options.push({ value: "minimax-api", label: "MiniMax M2.1" });
   options.push({
     value: "minimax-api-lightning",
     label: "MiniMax M2.1 Lightning",
     hint: "Faster, lower cost",
   });
+  options.push({ value: "minimax", label: "Minimax M2.1 (LM Studio)" });
   if (params.includeSkip) {
     options.push({ value: "skip", label: "Skip for now" });
   }
