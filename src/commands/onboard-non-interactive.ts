@@ -285,7 +285,7 @@ export async function runNonInteractiveOnboarding(
       mode: "api_key",
     });
     nextConfig = applyOpenrouterConfig(nextConfig);
-  } else if (authChoice === "minimax-cloud" || authChoice === "minimax-api") {
+  } else if (authChoice === "minimax-api") {
     const resolved = await resolveNonInteractiveApiKey({
       provider: "minimax",
       cfg: baseConfig,
