@@ -35,12 +35,14 @@ import {
   applyClaudeSdkConfig,
   applyMinimaxApiConfig,
   applyMinimaxConfig,
+  applyMoonshotConfig,
   applyOpencodeZenConfig,
   applyOpenrouterConfig,
   applyZaiConfig,
   setAnthropicApiKey,
   setGeminiApiKey,
   setMinimaxApiKey,
+  setMoonshotApiKey,
   setOpencodeZenApiKey,
   setOpenrouterApiKey,
   setZaiApiKey,
@@ -285,6 +287,25 @@ export async function runNonInteractiveOnboarding(
       mode: "api_key",
     });
     nextConfig = applyOpenrouterConfig(nextConfig);
+  } else if (authChoice === "moonshot-api-key") {
+    const resolved = await resolveNonInteractiveApiKey({
+      provider: "moonshot",
+      cfg: baseConfig,
+      flagValue: opts.moonshotApiKey,
+      flagName: "--moonshot-api-key",
+      envVar: "MOONSHOT_API_KEY",
+      runtime,
+    });
+    if (!resolved) return;
+    if (resolved.source !== "profile") {
+      await setMoonshotApiKey(resolved.key);
+    }
+    nextConfig = applyAuthProfileConfig(nextConfig, {
+      profileId: "moonshot:default",
+      provider: "moonshot",
+      mode: "api_key",
+    });
+    nextConfig = applyMoonshotConfig(nextConfig);
   } else if (authChoice === "minimax-api") {
     const resolved = await resolveNonInteractiveApiKey({
       provider: "minimax",
