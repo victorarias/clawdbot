@@ -145,7 +145,6 @@ describe("isCompactionFailureError", () => {
     expect(isCompactionFailureError("rate limit exceeded")).toBe(false);
   });
 });
-
 describe("isBillingErrorMessage", () => {
   it("matches credit / payment failures", () => {
     const samples = [

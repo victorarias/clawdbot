@@ -259,10 +259,11 @@ export async function runReplyAgent(params: {
   } = params;
 
   let activeSessionEntry = sessionEntry;
-  const activeSessionStore = sessionStore;
+  let activeSessionStore = sessionStore;
   let activeIsNewSession = isNewSession;
 
   const isHeartbeat = opts?.isHeartbeat === true;
+  const onPartialReply = opts?.onPartialReply;
   const typingSignals = createTypingSignaler({
     typing,
     mode: typingMode,
@@ -819,7 +820,7 @@ export async function runReplyAgent(params: {
                 timeoutMs: followupRun.run.timeoutMs,
                 runId,
                 onPartialReply:
-                  opts?.onPartialReply && allowPartialStream
+                  onPartialReply && allowPartialStream
                     ? async (payload) => {
                         let text = payload.text;
                         if (!isHeartbeat && text?.includes("HEARTBEAT_OK")) {
@@ -831,7 +832,7 @@ export async function runReplyAgent(params: {
                           text = stripped.text;
                         }
                         if (!text) return;
-                        await opts?.onPartialReply?.({ text });
+                        await onPartialReply({ text });
                       }
                     : undefined,
               })
@@ -895,9 +896,8 @@ export async function runReplyAgent(params: {
               onPartialReply: allowPartialStream
                 ? async (payload) => {
                     const textForTyping = await handlePartialForTyping(payload);
-                    if (!opts?.onPartialReply || textForTyping === undefined)
-                      return;
-                    await opts.onPartialReply({
+                    if (!onPartialReply || textForTyping === undefined) return;
+                    await onPartialReply({
                       text: textForTyping,
                       mediaUrls: payload.mediaUrls,
                     });

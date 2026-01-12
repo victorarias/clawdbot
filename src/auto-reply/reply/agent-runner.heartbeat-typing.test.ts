@@ -583,7 +583,6 @@ describe("runReplyAgent typing (heartbeat)", () => {
       }
     }
   });
-
   it("still replies even if session reset fails to persist", async () => {
     const prevStateDir = process.env.CLAWDBOT_STATE_DIR;
     const stateDir = await fs.mkdtemp(

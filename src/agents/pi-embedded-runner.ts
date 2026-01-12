@@ -517,6 +517,13 @@ registerUnhandledRejectionHandler((reason) => {
   return true;
 });
 
+registerUnhandledRejectionHandler((reason) => {
+  const message = describeUnknownError(reason);
+  if (!isCompactionFailureError(message)) return false;
+  log.error(`Auto-compaction failed (unhandled): ${message}`);
+  return true;
+});
+
 type CustomEntryLike = { type?: unknown; customType?: unknown };
 
 function hasGoogleTurnOrderingMarker(sessionManager: SessionManager): boolean {
