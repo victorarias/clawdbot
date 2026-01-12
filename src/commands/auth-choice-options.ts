@@ -114,6 +114,17 @@ const AUTH_CHOICE_GROUP_DEFS: {
     hint: "API key",
     choices: ["opencode-zen"],
   },
+  {
+    value: "minimax",
+    label: "MiniMax",
+    hint: "M2.1 (recommended)",
+    choices: [
+      "minimax-cloud",
+      "minimax-api-lightning",
+      "minimax",
+      "minimax-api",
+    ],
+  },
 ];
 
 function formatOAuthHint(
