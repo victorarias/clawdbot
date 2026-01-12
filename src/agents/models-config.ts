@@ -11,35 +11,15 @@ import {
   ensureAuthProfileStore,
   listProfilesForProvider,
 } from "./auth-profiles.js";
-import { resolveEnvApiKey } from "./model-auth.js";
+import {
+  normalizeProviders,
+  type ProviderConfig,
+  resolveImplicitProviders,
+} from "./models-config.providers.js";
 
 type ModelsConfig = NonNullable<ClawdbotConfig["models"]>;
-type ProviderConfig = NonNullable<ModelsConfig["providers"]>[string];
 
 const DEFAULT_MODE: NonNullable<ModelsConfig["mode"]> = "merge";
-
-const MINIMAX_API_BASE_URL = "https://api.minimax.io/anthropic";
-const MINIMAX_DEFAULT_MODEL_ID = "MiniMax-M2.1";
-const MINIMAX_DEFAULT_CONTEXT_WINDOW = 200000;
-const MINIMAX_DEFAULT_MAX_TOKENS = 8192;
-// Pricing: MiniMax doesn't publish public rates. Override in models.json for accurate costs.
-const MINIMAX_API_COST = {
-  input: 15,
-  output: 60,
-  cacheRead: 2,
-  cacheWrite: 10,
-};
-
-const MOONSHOT_BASE_URL = "https://api.moonshot.ai/v1";
-const MOONSHOT_DEFAULT_MODEL_ID = "kimi-k2-0905-preview";
-const MOONSHOT_DEFAULT_CONTEXT_WINDOW = 256000;
-const MOONSHOT_DEFAULT_MAX_TOKENS = 8192;
-const MOONSHOT_DEFAULT_COST = {
-  input: 0,
-  output: 0,
-  cacheRead: 0,
-  cacheWrite: 0,
-};
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return Boolean(value && typeof value === "object" && !Array.isArray(value));
@@ -96,6 +76,7 @@ function mergeProviders(params: {
   }
   return out;
 }
+||||||| parent of b1c3e38df (refactor(models): share implicit providers)
 async function readJson(pathname: string): Promise<unknown> {
   try {
     const raw = await fs.readFile(pathname, "utf8");
@@ -103,69 +84,6 @@ async function readJson(pathname: string): Promise<unknown> {
   } catch {
     return null;
   }
-}
-
-function buildMinimaxApiProvider(): ProviderConfig {
-  return {
-    baseUrl: MINIMAX_API_BASE_URL,
-    api: "anthropic-messages",
-    models: [
-      {
-        id: MINIMAX_DEFAULT_MODEL_ID,
-        name: "MiniMax M2.1",
-        reasoning: false,
-        input: ["text"],
-        cost: MINIMAX_API_COST,
-        contextWindow: MINIMAX_DEFAULT_CONTEXT_WINDOW,
-        maxTokens: MINIMAX_DEFAULT_MAX_TOKENS,
-      },
-    ],
-  };
-}
-
-function buildMoonshotProvider(): ProviderConfig {
-  return {
-    baseUrl: MOONSHOT_BASE_URL,
-    api: "openai-completions",
-    models: [
-      {
-        id: MOONSHOT_DEFAULT_MODEL_ID,
-        name: "Kimi K2 0905 Preview",
-        reasoning: false,
-        input: ["text"],
-        cost: MOONSHOT_DEFAULT_COST,
-        contextWindow: MOONSHOT_DEFAULT_CONTEXT_WINDOW,
-        maxTokens: MOONSHOT_DEFAULT_MAX_TOKENS,
-      },
-    ],
-  };
-}
-
-function resolveImplicitProviders(params: {
-  cfg: ClawdbotConfig;
-  agentDir: string;
-}): ModelsConfig["providers"] {
-  const providers: Record<string, ProviderConfig> = {};
-
-  const authStore = ensureAuthProfileStore(params.agentDir, {
-    allowKeychainPrompt: false,
-  });
-
-  const minimaxKey =
-    resolveEnvApiKeyVarName("minimax") ??
-    resolveApiKeyFromProfiles({ provider: "minimax", store: authStore });
-  if (minimaxKey) {
-    providers.minimax = { ...buildMinimaxApiProvider(), apiKey: minimaxKey };
-  }
-
-  const moonshotKey =
-    resolveEnvApiKeyVarName("moonshot") ??
-    resolveApiKeyFromProfiles({ provider: "moonshot", store: authStore });
-  if (moonshotKey) {
-    providers.moonshot = { ...buildMoonshotProvider(), apiKey: moonshotKey };
-  }
-
-  return providers;
 }
 
 async function maybeBuildCopilotProvider(params: {
