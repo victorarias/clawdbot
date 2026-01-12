@@ -76,7 +76,12 @@ const AUTH_CHOICE_GROUP_DEFS: {
     value: "minimax",
     label: "MiniMax",
     hint: "M2.1 (recommended)",
-    choices: ["minimax-api", "minimax-api-lightning"],
+    choices: [
+      "minimax-cloud",
+      "minimax-api-lightning",
+      "minimax",
+      "minimax-api",
+    ],
   },
   {
     value: "synthetic",
@@ -113,17 +118,6 @@ const AUTH_CHOICE_GROUP_DEFS: {
     label: "OpenCode Zen",
     hint: "API key",
     choices: ["opencode-zen"],
-  },
-  {
-    value: "minimax",
-    label: "MiniMax",
-    hint: "M2.1 (recommended)",
-    choices: [
-      "minimax-cloud",
-      "minimax-api-lightning",
-      "minimax",
-      "minimax-api",
-    ],
   },
 ];
 
