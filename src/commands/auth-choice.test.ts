@@ -255,7 +255,7 @@ describe("applyAuthChoice", () => {
     };
 
     const result = await applyAuthChoice({
-      authChoice: "minimax-cloud",
+      authChoice: "minimax-api",
       config: {},
       prompter,
       runtime,

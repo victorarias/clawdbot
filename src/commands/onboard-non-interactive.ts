@@ -338,11 +338,7 @@ export async function runNonInteractiveOnboarding(
       mode: "api_key",
     });
     nextConfig = applySyntheticConfig(nextConfig);
-  } else if (
-    authChoice === "minimax-cloud" ||
-    authChoice === "minimax-api" ||
-    authChoice === "minimax-api-lightning"
-  ) {
+  } else if (authChoice === "minimax-cloud" || authChoice === "minimax-api") {
     const resolved = await resolveNonInteractiveApiKey({
       provider: "minimax",
       cfg: baseConfig,
@@ -360,10 +356,7 @@ export async function runNonInteractiveOnboarding(
       provider: "minimax",
       mode: "api_key",
     });
-    const modelId =
-      authChoice === "minimax-api-lightning"
-        ? "MiniMax-M2.1-lightning"
-        : "MiniMax-M2.1";
+    const modelId = "MiniMax-M2.1";
     nextConfig = applyMinimaxApiConfig(nextConfig, modelId);
   } else if (authChoice === "claude-sdk") {
     const store = ensureAuthProfileStore(undefined, {

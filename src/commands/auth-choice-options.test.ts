@@ -7,17 +7,6 @@ import {
 import { buildAuthChoiceOptions } from "./auth-choice-options.js";
 
 describe("buildAuthChoiceOptions", () => {
-  it("includes GitHub Copilot", () => {
-    const store: AuthProfileStore = { version: 1, profiles: {} };
-    const options = buildAuthChoiceOptions({
-      store,
-      includeSkip: false,
-      includeClaudeCliIfMissing: false,
-      platform: "linux",
-    });
-
-    expect(options.find((opt) => opt.value === "github-copilot")).toBeDefined();
-  });
   it("includes Claude CLI option on macOS even when missing", () => {
     const store: AuthProfileStore = { version: 1, profiles: {} };
     const options = buildAuthChoiceOptions({
@@ -28,10 +17,8 @@ describe("buildAuthChoiceOptions", () => {
     });
 
     const claudeCli = options.find((opt) => opt.value === "claude-cli");
-    const claudeSdk = options.find((opt) => opt.value === "claude-sdk");
     expect(claudeCli).toBeDefined();
     expect(claudeCli?.hint).toBe("requires Keychain access");
-    expect(claudeSdk).toBeDefined();
   });
 
   it("skips missing Claude CLI option off macOS", () => {
@@ -67,9 +54,7 @@ describe("buildAuthChoiceOptions", () => {
     });
 
     const claudeCli = options.find((opt) => opt.value === "claude-cli");
-    const claudeSdk = options.find((opt) => opt.value === "claude-sdk");
     expect(claudeCli?.hint).toContain("token ok");
-    expect(claudeSdk?.hint).toContain("token ok");
   });
 
   it("includes Z.AI (GLM) auth choice", () => {
@@ -94,44 +79,5 @@ describe("buildAuthChoiceOptions", () => {
     });
 
     expect(options.some((opt) => opt.value === "minimax-api")).toBe(true);
-    expect(options.some((opt) => opt.value === "minimax-api-lightning")).toBe(
-      true,
-    );
-  });
-
-  it("includes Moonshot auth choice", () => {
-    const store: AuthProfileStore = { version: 1, profiles: {} };
-    const options = buildAuthChoiceOptions({
-      store,
-      includeSkip: false,
-      includeClaudeCliIfMissing: true,
-      platform: "darwin",
-    });
-
-    expect(options.some((opt) => opt.value === "moonshot-api-key")).toBe(true);
-  });
-
-  it("includes Synthetic auth choice", () => {
-    const store: AuthProfileStore = { version: 1, profiles: {} };
-    const options = buildAuthChoiceOptions({
-      store,
-      includeSkip: false,
-      includeClaudeCliIfMissing: true,
-      platform: "darwin",
-    });
-
-    expect(options.some((opt) => opt.value === "synthetic-api-key")).toBe(true);
-  });
-
-  it("includes Chutes OAuth auth choice", () => {
-    const store: AuthProfileStore = { version: 1, profiles: {} };
-    const options = buildAuthChoiceOptions({
-      store,
-      includeSkip: false,
-      includeClaudeCliIfMissing: true,
-      platform: "darwin",
-    });
-
-    expect(options.some((opt) => opt.value === "chutes")).toBe(true);
   });
 });

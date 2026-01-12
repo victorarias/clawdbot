@@ -1071,54 +1071,26 @@ export async function applyAuthChoice(params: {
     });
   } else if (
     params.authChoice === "minimax-cloud" ||
-    params.authChoice === "minimax-api" ||
-    params.authChoice === "minimax-api-lightning"
+    params.authChoice === "minimax-api"
   ) {
-    const modelId =
-      params.authChoice === "minimax-api-lightning"
-        ? "MiniMax-M2.1-lightning"
-        : "MiniMax-M2.1";
-    let hasCredential = false;
-    const envKey = resolveEnvApiKey("minimax");
-    if (envKey) {
-      const useExisting = await params.prompter.confirm({
-        message: `Use existing MINIMAX_API_KEY (${envKey.source}, ${formatApiKeyPreview(envKey.apiKey)})?`,
-        initialValue: true,
-      });
-      if (useExisting) {
-        await setMinimaxApiKey(envKey.apiKey, params.agentDir);
-        hasCredential = true;
-      }
-    }
-    if (!hasCredential) {
-      const key = await params.prompter.text({
-        message: "Enter MiniMax API key",
-        validate: validateApiKeyInput,
-      });
-      await setMinimaxApiKey(
-        normalizeApiKeyInput(String(key)),
-        params.agentDir,
-      );
-    }
+    const modelId = "MiniMax-M2.1";
+    const key = await params.prompter.text({
+      message: "Enter MiniMax API key",
+      validate: (value) => (value?.trim() ? undefined : "Required"),
+    });
+    await setMinimaxApiKey(String(key).trim(), params.agentDir);
     nextConfig = applyAuthProfileConfig(nextConfig, {
       profileId: "minimax:default",
       provider: "minimax",
       mode: "api_key",
     });
-    {
+    if (params.setDefaultModel) {
+      nextConfig = applyMinimaxApiConfig(nextConfig, modelId);
+    } else {
       const modelRef = `minimax/${modelId}`;
-      const applied = await applyDefaultModelChoice({
-        config: nextConfig,
-        setDefaultModel: params.setDefaultModel,
-        defaultModel: modelRef,
-        applyDefaultConfig: (config) => applyMinimaxApiConfig(config, modelId),
-        applyProviderConfig: (config) =>
-          applyMinimaxApiProviderConfig(config, modelId),
-        noteAgentModel,
-        prompter: params.prompter,
-      });
-      nextConfig = applied.config;
-      agentModelOverride = applied.agentModelOverride ?? agentModelOverride;
+      nextConfig = applyMinimaxApiProviderConfig(nextConfig, modelId);
+      agentModelOverride = modelRef;
+      await noteAgentModel(modelRef);
     }
   } else if (params.authChoice === "github-copilot") {
     await params.prompter.note(
@@ -1268,7 +1240,6 @@ const PREFERRED_PROVIDER_BY_AUTH_CHOICE: Partial<Record<AuthChoice, string>> = {
   "github-copilot": "github-copilot",
   "minimax-cloud": "minimax",
   "minimax-api": "minimax",
-  "minimax-api-lightning": "minimax",
   minimax: "lmstudio",
   "opencode-zen": "opencode",
 };
