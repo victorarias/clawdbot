@@ -145,7 +145,6 @@ async function maybeBuildCopilotProvider(params: {
     models: [],
   } satisfies ProviderConfig;
 }
-
 export async function ensureClawdbotModelsJson(
   config?: ClawdbotConfig,
   agentDirOverride?: string,
@@ -165,7 +164,6 @@ export async function ensureClawdbotModelsJson(
   if (implicitCopilot && !providers["github-copilot"]) {
     providers["github-copilot"] = implicitCopilot;
   }
-
   if (Object.keys(providers).length === 0) {
     return { agentDir, wrote: false };
   }
