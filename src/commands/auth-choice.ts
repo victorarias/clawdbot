@@ -52,6 +52,7 @@ import {
   applySyntheticProviderConfig,
   applyZaiConfig,
   CLAUDE_SDK_DEFAULT_MODEL_REF,
+  MINIMAX_HOSTED_MODEL_REF,
   MOONSHOT_DEFAULT_MODEL_REF,
   OPENROUTER_DEFAULT_MODEL_REF,
   SYNTHETIC_DEFAULT_MODEL_REF,
@@ -1175,19 +1176,17 @@ export async function applyAuthChoice(params: {
       );
     }
   } else if (params.authChoice === "minimax") {
-    {
-      const applied = await applyDefaultModelChoice({
-        config: nextConfig,
-        setDefaultModel: params.setDefaultModel,
-        defaultModel: "lmstudio/minimax-m2.1-gs32",
-        applyDefaultConfig: applyMinimaxConfig,
-        applyProviderConfig: applyMinimaxProviderConfig,
-        noteAgentModel,
-        prompter: params.prompter,
-      });
-      nextConfig = applied.config;
-      agentModelOverride = applied.agentModelOverride ?? agentModelOverride;
-    }
+    const applied = await applyDefaultModelChoice({
+      config: nextConfig,
+      setDefaultModel: params.setDefaultModel,
+      defaultModel: "lmstudio/minimax-m2.1-gs32",
+      applyDefaultConfig: applyMinimaxConfig,
+      applyProviderConfig: applyMinimaxProviderConfig,
+      noteAgentModel,
+      prompter: params.prompter,
+    });
+    nextConfig = applied.config;
+    agentModelOverride = applied.agentModelOverride ?? agentModelOverride;
   } else if (params.authChoice === "opencode-zen") {
     await params.prompter.note(
       [

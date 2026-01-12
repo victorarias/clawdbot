@@ -1988,9 +1988,9 @@ Use MiniMax M2.1 directly without LM Studio:
 ```
 
 Notes:
-- Set `MINIMAX_API_KEY` environment variable or use `clawdbot onboard --auth-choice minimax-api`.
-- Available model: `MiniMax-M2.1` (default).
-- Update pricing in `models.json` if you need exact cost tracking.
+- Set `MINIMAX_API_KEY` environment variable or use `clawdbot onboard --auth-choice minimax-cloud` (preferred) or `--auth-choice minimax-api` (legacy alias).
+- Available models: `MiniMax-M2.1` (default), `MiniMax-M2.1-lightning` (~100 tps), `MiniMax-M2` (reasoning).
+- Pricing is a placeholder; MiniMax doesn't publish public rates. Override in `models.json` for accurate cost tracking.
 
 ### Cerebras (GLM 4.6 / 4.7)
 
