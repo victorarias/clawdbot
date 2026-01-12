@@ -573,8 +573,9 @@ export async function runReplyAgent(params: {
             }
             text = stripped.text;
           }
-          if (isSilentReplyText(text, SILENT_REPLY_TOKEN))
+          if (isSilentReplyText(text, SILENT_REPLY_TOKEN)) {
             return { skip: true };
+          }
           return { text, skip: false };
         };
         const handlePartialForTyping = async (
@@ -803,8 +804,9 @@ export async function runReplyAgent(params: {
                 blockStreamingEnabled && opts?.onBlockReply
                   ? async (payload) => {
                       const { text, skip } = normalizeStreamingText(payload);
-                      if (skip && (payload.mediaUrls?.length ?? 0) === 0)
-                        return;
+                      const hasPayloadMedia =
+                        (payload.mediaUrls?.length ?? 0) > 0;
+                      if (skip && !hasPayloadMedia) return;
                       const taggedPayload = applyReplyTagsToPayload(
                         {
                           text,
@@ -827,18 +829,18 @@ export async function runReplyAgent(params: {
                         },
                       );
                       const cleaned = parsed.text || undefined;
-                      const hasMedia =
+                      const hasRenderableMedia =
                         Boolean(taggedPayload.mediaUrl) ||
                         (taggedPayload.mediaUrls?.length ?? 0) > 0;
                       // Skip empty payloads unless they have audioAsVoice flag (need to track it)
                       if (
                         !cleaned &&
-                        !hasMedia &&
+                        !hasRenderableMedia &&
                         !payload.audioAsVoice &&
                         !parsed.audioAsVoice
                       )
                         return;
-                      if (parsed.isSilent && !hasMedia) return;
+                      if (parsed.isSilent && !hasRenderableMedia) return;
 
                       const blockPayload: ReplyPayload = applyReplyToMode({
                         ...taggedPayload,
