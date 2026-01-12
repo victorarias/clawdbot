@@ -607,7 +607,6 @@ export async function runReplyAgent(params: {
       logVerbose(`memory flush run failed: ${String(err)}`);
     }
   }
-
   const runFollowupTurn = createFollowupRunner({
     opts,
     typing,

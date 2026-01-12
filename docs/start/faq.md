@@ -424,7 +424,6 @@ Remote memory search still needs a real OpenAI API key (`OPENAI_API_KEY` or
 `memorySearch.provider = "local"` (and optionally `memorySearch.fallback =
 "none"`). We support **remote or local embedding models** — see [Memory](/concepts/memory)
 for the setup details.
-
 ## Where things live on disk
 
 ### Where does Clawdbot store its data?

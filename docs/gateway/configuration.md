@@ -1456,7 +1456,6 @@ Example (tuned):
   }
 }
 ```
-
 Block streaming:
 - `agents.defaults.blockStreamingDefault`: `"on"`/`"off"` (default off).
 - Provider overrides: `*.blockStreaming` (and per-account variants) to force block streaming on/off.
