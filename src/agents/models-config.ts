@@ -2,7 +2,6 @@ import fs from "node:fs/promises";
 import path from "node:path";
 
 import { type ClawdbotConfig, loadConfig } from "../config/config.js";
-import type { ModelsConfig as ModelsConfigShape } from "../config/types.js";
 import {
   DEFAULT_COPILOT_API_BASE_URL,
   resolveCopilotApiToken,
@@ -15,8 +14,7 @@ import {
 import { resolveEnvApiKey } from "./model-auth.js";
 
 type ModelsConfig = NonNullable<ClawdbotConfig["models"]>;
-
-type ModelsProviderConfig = NonNullable<ModelsConfigShape["providers"]>[string];
+type ProviderConfig = NonNullable<ModelsConfig["providers"]>[string];
 
 const DEFAULT_MODE: NonNullable<ModelsConfig["mode"]> = "merge";
 const MINIMAX_API_BASE_URL = "https://api.minimax.io/anthropic";
@@ -146,6 +144,38 @@ function normalizeProviders(params: {
   return mutated ? next : providers;
 }
 
+function normalizeGoogleModelId(id: string): string {
+  if (id === "gemini-3-pro") return "gemini-3-pro-preview";
+  if (id === "gemini-3-flash") return "gemini-3-flash-preview";
+  return id;
+}
+
+function normalizeGoogleProvider(provider: ProviderConfig): ProviderConfig {
+  let mutated = false;
+  const models = provider.models.map((model) => {
+    const nextId = normalizeGoogleModelId(model.id);
+    if (nextId === model.id) return model;
+    mutated = true;
+    return { ...model, id: nextId };
+  });
+  return mutated ? { ...provider, models } : provider;
+}
+
+function normalizeProviders(
+  providers: ModelsConfig["providers"],
+): ModelsConfig["providers"] {
+  if (!providers) return providers;
+  let mutated = false;
+  const next: Record<string, ProviderConfig> = {};
+  for (const [key, provider] of Object.entries(providers)) {
+    const normalized =
+      key === "google" ? normalizeGoogleProvider(provider) : provider;
+    if (normalized !== provider) mutated = true;
+    next[key] = normalized;
+  }
+  return mutated ? next : providers;
+}
+
 async function readJson(pathname: string): Promise<unknown> {
   try {
     const raw = await fs.readFile(pathname, "utf8");
@@ -218,11 +248,11 @@ function resolveImplicitProviders(params: {
 }
 
 async function maybeBuildCopilotProvider(params: {
-  cfg: ClawdbotConfig;
+  agentDir: string;
   env?: NodeJS.ProcessEnv;
-}): Promise<ModelsProviderConfig | null> {
+}): Promise<ProviderConfig | null> {
   const env = params.env ?? process.env;
-  const authStore = ensureAuthProfileStore();
+  const authStore = ensureAuthProfileStore(params.agentDir);
   const hasProfile =
     listProfilesForProvider(authStore, "github-copilot").length > 0;
   const envToken = env.COPILOT_GITHUB_TOKEN ?? env.GH_TOKEN ?? env.GITHUB_TOKEN;
@@ -272,7 +302,7 @@ async function maybeBuildCopilotProvider(params: {
   return {
     baseUrl,
     models: [],
-  } satisfies ModelsProviderConfig;
+  } satisfies ProviderConfig;
 }
 
 export async function ensureClawdbotModelsJson(
@@ -280,20 +310,21 @@ export async function ensureClawdbotModelsJson(
   agentDirOverride?: string,
 ): Promise<{ agentDir: string; wrote: boolean }> {
   const cfg = config ?? loadConfig();
-
   const agentDir = agentDirOverride?.trim()
     ? agentDirOverride.trim()
     : resolveClawdbotAgentDir();
   const explicitProviders = cfg.models?.providers ?? {};
   const implicitProviders = resolveImplicitProviders({ cfg, agentDir });
-  const implicitCopilot = await maybeBuildCopilotProvider({ cfg });
-  const providers = {
-    ...explicitProviders,
+  const providers: Record<string, ProviderConfig> = {
     ...implicitProviders,
-    ...(implicitCopilot ? { "github-copilot": implicitCopilot } : {}),
+    ...explicitProviders,
   };
+  const implicitCopilot = await maybeBuildCopilotProvider({ agentDir });
+  if (implicitCopilot && !providers["github-copilot"]) {
+    providers["github-copilot"] = implicitCopilot;
+  }
 
-  if (!providers || Object.keys(providers).length === 0) {
+  if (Object.keys(providers).length === 0) {
     return { agentDir, wrote: false };
   }
 
