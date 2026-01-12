@@ -306,7 +306,11 @@ export async function runNonInteractiveOnboarding(
       mode: "api_key",
     });
     nextConfig = applyMoonshotConfig(nextConfig);
-  } else if (authChoice === "minimax-api") {
+  } else if (
+    authChoice === "minimax-cloud" ||
+    authChoice === "minimax-api" ||
+    authChoice === "minimax-api-lightning"
+  ) {
     const resolved = await resolveNonInteractiveApiKey({
       provider: "minimax",
       cfg: baseConfig,
@@ -324,7 +328,11 @@ export async function runNonInteractiveOnboarding(
       provider: "minimax",
       mode: "api_key",
     });
-    nextConfig = applyMinimaxApiConfig(nextConfig);
+    const modelId =
+      authChoice === "minimax-api-lightning"
+        ? "MiniMax-M2.1-lightning"
+        : "MiniMax-M2.1";
+    nextConfig = applyMinimaxApiConfig(nextConfig, modelId);
   } else if (authChoice === "claude-sdk") {
     const store = ensureAuthProfileStore(undefined, {
       allowKeychainPrompt: false,
