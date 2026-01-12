@@ -175,7 +175,8 @@ Synthetic provides Anthropic-compatible models behind the `synthetic` provider:
 
 MiniMax is configured via `models.providers` because it uses custom endpoints:
 
-- MiniMax (Anthropic‑compatible): `--auth-choice minimax-api`
+- MiniMax (Anthropic‑compatible): `--auth-choice minimax-cloud`
+  - `--auth-choice minimax-api` is a legacy alias.
 - Auth: `MINIMAX_API_KEY`
 
 See [/providers/minimax](/providers/minimax) for setup details, model options, and config snippets.
