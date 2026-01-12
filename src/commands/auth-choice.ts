@@ -42,8 +42,6 @@ import {
   applyMinimaxApiConfig,
   applyMinimaxApiProviderConfig,
   applyMinimaxConfig,
-  applyMinimaxHostedConfig,
-  applyMinimaxHostedProviderConfig,
   applyMinimaxProviderConfig,
   applyOpencodeZenConfig,
   applyOpencodeZenProviderConfig,
@@ -51,7 +49,6 @@ import {
   applyOpenrouterProviderConfig,
   applyZaiConfig,
   CLAUDE_SDK_DEFAULT_MODEL_REF,
-  MINIMAX_HOSTED_MODEL_REF,
   OPENROUTER_DEFAULT_MODEL_REF,
   setAnthropicApiKey,
   setGeminiApiKey,
@@ -809,33 +806,10 @@ export async function applyAuthChoice(params: {
       provider: "anthropic",
       mode: "api_key",
     });
-  } else if (params.authChoice === "minimax-cloud") {
-    const key = await params.prompter.text({
-      message: "Enter MiniMax API key",
-      validate: (value) => (value?.trim() ? undefined : "Required"),
-    });
-    await setMinimaxApiKey(String(key).trim(), params.agentDir);
-    nextConfig = applyAuthProfileConfig(nextConfig, {
-      profileId: "minimax:default",
-      provider: "minimax",
-      mode: "api_key",
-    });
-    if (params.setDefaultModel) {
-      nextConfig = applyMinimaxHostedConfig(nextConfig);
-    } else {
-      nextConfig = applyMinimaxHostedProviderConfig(nextConfig);
-      agentModelOverride = MINIMAX_HOSTED_MODEL_REF;
-      await noteAgentModel(MINIMAX_HOSTED_MODEL_REF);
-    }
-  } else if (params.authChoice === "minimax") {
-    if (params.setDefaultModel) {
-      nextConfig = applyMinimaxConfig(nextConfig);
-    } else {
-      nextConfig = applyMinimaxProviderConfig(nextConfig);
-      agentModelOverride = "lmstudio/minimax-m2.1-gs32";
-      await noteAgentModel("lmstudio/minimax-m2.1-gs32");
-    }
-  } else if (params.authChoice === "minimax-api") {
+  } else if (
+    params.authChoice === "minimax-cloud" ||
+    params.authChoice === "minimax-api"
+  ) {
     const key = await params.prompter.text({
       message: "Enter MiniMax API key",
       validate: (value) => (value?.trim() ? undefined : "Required"),
@@ -852,6 +826,14 @@ export async function applyAuthChoice(params: {
       nextConfig = applyMinimaxApiProviderConfig(nextConfig);
       agentModelOverride = "minimax/MiniMax-M2.1";
       await noteAgentModel("minimax/MiniMax-M2.1");
+    }
+  } else if (params.authChoice === "minimax") {
+    if (params.setDefaultModel) {
+      nextConfig = applyMinimaxConfig(nextConfig);
+    } else {
+      nextConfig = applyMinimaxProviderConfig(nextConfig);
+      agentModelOverride = "lmstudio/minimax-m2.1-gs32";
+      await noteAgentModel("lmstudio/minimax-m2.1-gs32");
     }
   } else if (params.authChoice === "opencode-zen") {
     await params.prompter.note(
