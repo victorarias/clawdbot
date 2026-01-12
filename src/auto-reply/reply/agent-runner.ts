@@ -21,6 +21,10 @@ import {
   runEmbeddedPiAgent,
 } from "../../agents/pi-embedded.js";
 import {
+  queueEmbeddedPiMessage,
+  runEmbeddedPiAgent,
+} from "../../agents/pi-embedded.js";
+import {
   isCompactionFailureError,
   isContextOverflowError,
 } from "../../agents/pi-embedded-helpers.js";
@@ -259,7 +263,7 @@ export async function runReplyAgent(params: {
   } = params;
 
   let activeSessionEntry = sessionEntry;
-  let activeSessionStore = sessionStore;
+  const activeSessionStore = sessionStore;
   let activeIsNewSession = isNewSession;
 
   const isHeartbeat = opts?.isHeartbeat === true;
@@ -737,7 +741,7 @@ export async function runReplyAgent(params: {
                 },
               });
               const cliSessionId = getCliSessionId(
-                activeSessionEntry ?? sessionEntry,
+                activeSessionEntry,
                 provider,
               );
               return runCliAgent({
