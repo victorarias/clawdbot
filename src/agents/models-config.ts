@@ -27,14 +27,15 @@ function mergeProviderModels(
   implicit: ProviderConfig,
   explicit: ProviderConfig,
 ): ProviderConfig {
-  const implicitModels = Array.isArray(implicit.models) ? implicit.models : [];
-  const explicitModels = Array.isArray(explicit.models) ? explicit.models : [];
-  if (implicitModels.length === 0) return { ...implicit, ...explicit };
+  const implicitModels = implicit.models ?? [];
+  const explicitModels = explicit.models ?? [];
+  if (!implicitModels.length || !explicitModels.length) {
+    return { ...implicit, ...explicit };
+  }
 
-  const getId = (model: unknown): string => {
-    if (!model || typeof model !== "object") return "";
-    const id = (model as { id?: unknown }).id;
-    return typeof id === "string" ? id.trim() : "";
+  const getId = (model: ProviderConfig["models"][number]): string | null => {
+    const id = model.id?.trim();
+    return id?.length ? id : null;
   };
   const seen = new Set(explicitModels.map(getId).filter(Boolean));
 
