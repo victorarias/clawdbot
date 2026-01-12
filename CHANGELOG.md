@@ -44,6 +44,7 @@
 - Onboarding/Control UI: refuse invalid configs (run doctor first); quote Windows browser URLs for OAuth; keep chat scroll position unless the user is near the bottom.
 - Tools/UI: harden tool input schemas for strict providers; drop null-only union variants for Gemini schema cleanup; treat `maxChars: 0` as unlimited; keep TUI last streamed response instead of "(no output)".
 - Connections UI: polish multi-account account cards.
+- Models: keep explicit GitHub Copilot provider config and honor agent-dir auth profiles for auto-injection. (#705) — thanks @TAGOOZ.
 
 ### Maintenance
 - Dependencies: bump Pi packages to 0.45.3 and refresh patched pi-ai.
