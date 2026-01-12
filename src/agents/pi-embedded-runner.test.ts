@@ -23,6 +23,7 @@ vi.mock("./model-auth.js", () => ({
   getApiKeyForModel: vi.fn(),
   ensureAuthProfileStore: vi.fn(() => ({ profiles: {} })),
   resolveAuthProfileOrder: vi.fn(() => []),
+  resolveEnvApiKey: vi.fn(() => null),
 }));
 
 vi.mock("../providers/github-copilot-token.js", async () => {
@@ -32,6 +33,51 @@ vi.mock("../providers/github-copilot-token.js", async () => {
   return {
     ...actual,
     resolveCopilotApiToken: vi.fn(),
+  };
+});
+
+vi.mock("@mariozechner/pi-ai", async () => {
+  const actual = await vi.importActual<typeof import("@mariozechner/pi-ai")>(
+    "@mariozechner/pi-ai",
+  );
+  return {
+    ...actual,
+    streamSimple: (model: { api: string; provider: string; id: string }) => {
+      if (model.id === "mock-error") {
+        throw new Error("boom");
+      }
+      const stream = new actual.AssistantMessageEventStream();
+      queueMicrotask(() => {
+        stream.push({
+          type: "done",
+          reason: "stop",
+          message: {
+            role: "assistant",
+            content: [{ type: "text", text: "ok" }],
+            stopReason: "stop",
+            api: model.api,
+            provider: model.provider,
+            model: model.id,
+            usage: {
+              input: 1,
+              output: 1,
+              cacheRead: 0,
+              cacheWrite: 0,
+              totalTokens: 2,
+              cost: {
+                input: 0,
+                output: 0,
+                cacheRead: 0,
+                cacheWrite: 0,
+                total: 0,
+              },
+            },
+            timestamp: Date.now(),
+          },
+        });
+      });
+      return stream;
+    },
   };
 });
 
