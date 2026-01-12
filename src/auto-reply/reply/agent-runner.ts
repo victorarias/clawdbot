@@ -555,9 +555,9 @@ export async function runReplyAgent(params: {
         const allowPartialStream = !(
           followupRun.run.reasoningLevel === "stream" && opts?.onReasoningStream
         );
-        const handlePartialForTyping = async (
+        const normalizeStreamingText = (
           payload: ReplyPayload,
-        ): Promise<string | undefined> => {
+        ): string | undefined => {
           if (!allowPartialStream) return undefined;
           let text = payload.text;
           if (!isHeartbeat && text?.includes("HEARTBEAT_OK")) {
@@ -574,6 +574,13 @@ export async function runReplyAgent(params: {
             text = stripped.text;
           }
           if (isSilentReplyText(text, SILENT_REPLY_TOKEN)) return undefined;
+          return text;
+        };
+        const handlePartialForTyping = async (
+          payload: ReplyPayload,
+        ): Promise<string | undefined> => {
+          const text = normalizeStreamingText(payload);
+          if (!text) return undefined;
           await typingSignals.signalTextDelta(text);
           return text;
         };
