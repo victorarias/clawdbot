@@ -117,6 +117,7 @@ Moonshot uses OpenAI-compatible endpoints, so configure it as a custom provider:
 - Provider: `moonshot`
 - Auth: `MOONSHOT_API_KEY`
 - Example model: `moonshot/kimi-k2-0905-preview`
+- CLI: `clawdbot onboard --auth-choice moonshot-api-key`
 - Kimi K2 model IDs:
   {/* moonshot-kimi-k2-model-refs:start */}
   - `moonshot/kimi-k2-0905-preview`
@@ -170,12 +171,12 @@ Synthetic provides Anthropic-compatible models behind the `synthetic` provider:
   }
 }
 ```
-
 ### MiniMax
 
 MiniMax is configured via `models.providers` because it uses custom endpoints:
 
-- MiniMax (Anthropic‑compatible): `--auth-choice minimax-api`
+- MiniMax (Anthropic‑compatible): `--auth-choice minimax-cloud`
+  - `--auth-choice minimax-api` is a legacy alias.
 - Auth: `MINIMAX_API_KEY`
 
 See [/providers/minimax](/providers/minimax) for setup details, model options, and config snippets.
