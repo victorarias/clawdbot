@@ -72,6 +72,12 @@ const AUTH_CHOICE_GROUP_DEFS: {
     choices: ["claude-cli", "setup-token", "token", "apiKey"],
   },
   {
+    value: "minimax",
+    label: "MiniMax",
+    hint: "M2.1 (recommended)",
+    choices: ["minimax-api", "minimax-api-lightning"],
+  },
+  {
     value: "google",
     label: "Google",
     hint: "Antigravity + Gemini API key",
@@ -100,12 +106,6 @@ const AUTH_CHOICE_GROUP_DEFS: {
     label: "OpenCode Zen",
     hint: "API key",
     choices: ["opencode-zen"],
-  },
-  {
-    value: "minimax",
-    label: "MiniMax",
-    hint: "M2.1 (recommended)",
-    choices: ["minimax-api"],
   },
 ];
 
@@ -205,6 +205,11 @@ export function buildAuthChoiceOptions(params: {
     hint: "Claude, GPT, Gemini via opencode.ai/zen",
   });
   options.push({ value: "minimax-api", label: "MiniMax M2.1" });
+  options.push({
+    value: "minimax-api-lightning",
+    label: "MiniMax M2.1 Lightning",
+    hint: "Faster, lower cost",
+  });
   if (params.includeSkip) {
     options.push({ value: "skip", label: "Skip for now" });
   }

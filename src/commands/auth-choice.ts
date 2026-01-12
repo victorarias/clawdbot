@@ -149,7 +149,6 @@ async function applyDefaultModelChoice(params: {
   await params.noteAgentModel(params.defaultModel);
   return { config: next, agentModelOverride: params.defaultModel };
 }
-
 export async function warnIfModelConfigLooksOff(
   config: ClawdbotConfig,
   prompter: WizardPrompter,
@@ -739,7 +738,7 @@ export async function applyAuthChoice(params: {
     const envKey = resolveEnvApiKey("moonshot");
     if (envKey) {
       const useExisting = await params.prompter.confirm({
-        message: `Use existing MOONSHOT_API_KEY (${envKey.source})?`,
+        message: `Use existing MOONSHOT_API_KEY (${envKey.source}, ${formatApiKeyPreview(envKey.apiKey)})?`,
         initialValue: true,
       });
       if (useExisting) {
@@ -1103,14 +1102,18 @@ export async function applyAuthChoice(params: {
     });
   } else if (
     params.authChoice === "minimax-cloud" ||
-    params.authChoice === "minimax-api"
+    params.authChoice === "minimax-api" ||
+    params.authChoice === "minimax-api-lightning"
   ) {
-    const modelId = "MiniMax-M2.1";
+    const modelId =
+      params.authChoice === "minimax-api-lightning"
+        ? "MiniMax-M2.1-lightning"
+        : "MiniMax-M2.1";
     let hasCredential = false;
     const envKey = resolveEnvApiKey("minimax");
     if (envKey) {
       const useExisting = await params.prompter.confirm({
-        message: `Use existing MINIMAX_API_KEY (${envKey.source})?`,
+        message: `Use existing MINIMAX_API_KEY (${envKey.source}, ${formatApiKeyPreview(envKey.apiKey)})?`,
         initialValue: true,
       });
       if (useExisting) {
