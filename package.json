@@ -208,7 +208,13 @@
       "@sinclair/typebox": "0.34.47"
     },
     "patchedDependencies": {
+<<<<<<< HEAD
       "@mariozechner/pi-ai@0.45.3": "patches/@mariozechner__pi-ai@0.45.3.patch"
+||||||| parent of ca8e2bcca (chore: update deps)
+      "@mariozechner/pi-ai@0.42.2": "patches/@mariozechner__pi-ai@0.42.2.patch"
+=======
+      "@mariozechner/pi-ai@0.43.0": "patches/@mariozechner__pi-ai@0.43.0.patch"
+>>>>>>> ca8e2bcca (chore: update deps)
     }
   },
   "vitest": {
