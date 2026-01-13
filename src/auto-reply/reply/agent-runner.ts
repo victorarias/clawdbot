@@ -197,6 +197,9 @@ const appendUsageLine = (
   return updated;
 };
 
+const resolveEnforceFinalTag = (run: FollowupRun["run"], provider: string) =>
+  Boolean(run.enforceFinalTag || isReasoningTagProvider(provider));
+
 export async function runReplyAgent(params: {
   commandBody: string;
   followupRun: FollowupRun;
@@ -420,9 +423,7 @@ export async function runReplyAgent(params: {
             prompt: memoryFlushSettings.prompt,
             extraSystemPrompt: flushSystemPrompt,
             ownerNumbers: followupRun.run.ownerNumbers,
-            enforceFinalTag:
-              followupRun.run.enforceFinalTag ||
-              isReasoningTagProvider(provider),
+            enforceFinalTag: resolveEnforceFinalTag(followupRun.run, provider),
             provider,
             model,
             authProfileId: followupRun.run.authProfileId,
@@ -751,9 +752,10 @@ export async function runReplyAgent(params: {
               prompt: commandBody,
               extraSystemPrompt: followupRun.run.extraSystemPrompt,
               ownerNumbers: followupRun.run.ownerNumbers,
-              enforceFinalTag:
-                followupRun.run.enforceFinalTag ||
-                isReasoningTagProvider(provider),
+              enforceFinalTag: resolveEnforceFinalTag(
+                followupRun.run,
+                provider,
+              ),
               provider,
               model,
               authProfileId: followupRun.run.authProfileId,
