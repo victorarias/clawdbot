@@ -6,6 +6,13 @@
 - Cron: accept ISO timestamps for one-shot schedules (UTC) and allow optional delete-after-run; wired into CLI + macOS editor.
 - Gateway: add Tailscale binary discovery, custom bind mode, and probe auth retry for password changes. (#740 — thanks @jeffersonwarrior)
 - Agents: add compaction mode config with optional safeguard summarization for long histories. (#700 — thanks @thewilloftheshadow)
+- Agents: support per-agent model fallbacks via `agents.list[].model`. (#583 — thanks @mitschabaude-bot)
+- Tools: add tool profiles plus group shorthands for tool policy allow/deny (global, per-agent, sandbox).
+
+### Fixes
+- Gateway: honor `CLAWDBOT_LAUNCHD_LABEL` / `CLAWDBOT_SYSTEMD_UNIT` overrides when checking or restarting the daemon.
+- Tools: harden tool input schemas for strict providers (no unions; flattened actions; enum helpers + tests).
+- Discord: allow clearing channel parents via message tool without nullable schema inputs.
 
 ## 2026.1.12-4
 
