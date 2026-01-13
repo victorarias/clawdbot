@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-
+import { DEFAULT_CHAT_CHANNEL } from "../../channels/registry.js";
 import { agentCommand } from "../../commands/agent.js";
 import { loadConfig } from "../../config/config.js";
 import {
@@ -9,20 +9,15 @@ import {
   saveSessionStore,
 } from "../../config/sessions.js";
 import { registerAgentRunContext } from "../../infra/agent-events.js";
-import { normalizeMainKey } from "../../routing/session-key.js";
+import { resolveOutboundTarget } from "../../infra/outbound/targets.js";
 import { defaultRuntime } from "../../runtime.js";
 import { resolveSendPolicy } from "../../sessions/send-policy.js";
 import {
-  INTERNAL_MESSAGE_PROVIDER,
-  isDeliverableMessageProvider,
-  isGatewayMessageProvider,
-  normalizeMessageProvider,
-} from "../../utils/message-provider.js";
-import { normalizeE164 } from "../../utils.js";
-import {
-  isWhatsAppGroupJid,
-  normalizeWhatsAppTarget,
-} from "../../whatsapp/normalize.js";
+  INTERNAL_MESSAGE_CHANNEL,
+  isDeliverableMessageChannel,
+  isGatewayMessageChannel,
+  normalizeMessageChannel,
+} from "../../utils/message-channel.js";
 import { parseMessageWithAttachments } from "../chat-attachments.js";
 import {
   type AgentWaitParams,
@@ -64,7 +59,7 @@ export const agentHandlers: GatewayRequestHandlers = {
         fileName?: string;
         content?: unknown;
       }>;
-      provider?: string;
+      channel?: string;
       lane?: string;
       extraSystemPrompt?: string;
       idempotencyKey: string;
@@ -119,21 +114,21 @@ export const agentHandlers: GatewayRequestHandlers = {
         return;
       }
     }
-    const rawProvider =
-      typeof request.provider === "string" ? request.provider.trim() : "";
-    if (rawProvider) {
-      const normalized = normalizeMessageProvider(rawProvider);
+    const rawChannel =
+      typeof request.channel === "string" ? request.channel.trim() : "";
+    if (rawChannel) {
+      const normalized = normalizeMessageChannel(rawChannel);
       if (
         normalized &&
         normalized !== "last" &&
-        !isGatewayMessageProvider(normalized)
+        !isGatewayMessageChannel(normalized)
       ) {
         respond(
           false,
           undefined,
           errorShape(
             ErrorCodes.INVALID_REQUEST,
-            `invalid agent params: unknown provider: ${normalized}`,
+            `invalid agent params: unknown channel: ${normalized}`,
           ),
         );
         return;
@@ -150,7 +145,7 @@ export const agentHandlers: GatewayRequestHandlers = {
     let cfgForAgent: ReturnType<typeof loadConfig> | undefined;
 
     if (requestedSessionKey) {
-      const { cfg, storePath, store, entry } =
+      const { cfg, storePath, store, entry, canonicalKey } =
         loadSessionEntry(requestedSessionKey);
       cfgForAgent = cfg;
       const now = Date.now();
@@ -166,7 +161,7 @@ export const agentHandlers: GatewayRequestHandlers = {
         systemSent: entry?.systemSent,
         sendPolicy: entry?.sendPolicy,
         skillsSnapshot: entry?.skillsSnapshot,
-        lastProvider: entry?.lastProvider,
+        lastChannel: entry?.lastChannel,
         lastTo: entry?.lastTo,
         modelOverride: entry?.modelOverride,
         providerOverride: entry?.providerOverride,
@@ -178,7 +173,7 @@ export const agentHandlers: GatewayRequestHandlers = {
         cfg,
         entry,
         sessionKey: requestedSessionKey,
-        provider: entry?.provider,
+        channel: entry?.channel,
         chatType: entry?.chatType,
       });
       if (sendPolicy === "deny") {
@@ -193,24 +188,18 @@ export const agentHandlers: GatewayRequestHandlers = {
         return;
       }
       resolvedSessionId = sessionId;
-      const agentId = resolveAgentIdFromSessionKey(requestedSessionKey);
-      const mainSessionKey = resolveAgentMainSessionKey({
-        cfg,
-        agentId,
-      });
-      const rawMainKey = normalizeMainKey(cfg.session?.mainKey);
-      // Normalize short main key alias to canonical form before store write
-      const storeKey =
-        requestedSessionKey === rawMainKey ? mainSessionKey : requestedSessionKey;
+      const canonicalSessionKey = canonicalKey;
+      const agentId = resolveAgentIdFromSessionKey(canonicalSessionKey);
+      const mainSessionKey = resolveAgentMainSessionKey({ cfg, agentId });
       if (store) {
-        store[storeKey] = nextEntry;
+        store[canonicalSessionKey] = nextEntry;
         if (storePath) {
           await saveSessionStore(storePath, store);
         }
       }
       if (
-        requestedSessionKey === mainSessionKey ||
-        requestedSessionKey === rawMainKey
+        canonicalSessionKey === mainSessionKey ||
+        canonicalSessionKey === "global"
       ) {
         context.addChatRun(idem, {
           sessionKey: requestedSessionKey,
@@ -223,10 +212,9 @@ export const agentHandlers: GatewayRequestHandlers = {
 
     const runId = idem;
 
-    const requestedProvider =
-      normalizeMessageProvider(request.provider) ?? "last";
+    const requestedChannel = normalizeMessageChannel(request.channel) ?? "last";
 
-    const lastProvider = sessionEntry?.lastProvider;
+    const lastChannel = sessionEntry?.lastChannel;
     const lastTo =
       typeof sessionEntry?.lastTo === "string"
         ? sessionEntry.lastTo.trim()
@@ -234,78 +222,53 @@ export const agentHandlers: GatewayRequestHandlers = {
 
     const wantsDelivery = request.deliver === true;
 
-    const resolvedProvider = (() => {
-      if (requestedProvider === "last") {
+    const resolvedChannel = (() => {
+      if (requestedChannel === "last") {
         // WebChat is not a deliverable surface. Treat it as "unset" for routing,
         // so VoiceWake and CLI callers don't get stuck with deliver=false.
-        if (lastProvider && lastProvider !== INTERNAL_MESSAGE_PROVIDER) {
-          return lastProvider;
+        if (lastChannel && lastChannel !== INTERNAL_MESSAGE_CHANNEL) {
+          return lastChannel;
         }
-        return wantsDelivery ? "whatsapp" : INTERNAL_MESSAGE_PROVIDER;
+        return wantsDelivery ? DEFAULT_CHAT_CHANNEL : INTERNAL_MESSAGE_CHANNEL;
       }
 
-      if (isGatewayMessageProvider(requestedProvider)) return requestedProvider;
+      if (isGatewayMessageChannel(requestedChannel)) return requestedChannel;
 
-      if (lastProvider && lastProvider !== INTERNAL_MESSAGE_PROVIDER) {
-        return lastProvider;
+      if (lastChannel && lastChannel !== INTERNAL_MESSAGE_CHANNEL) {
+        return lastChannel;
       }
-      return wantsDelivery ? "whatsapp" : INTERNAL_MESSAGE_PROVIDER;
+      return wantsDelivery ? DEFAULT_CHAT_CHANNEL : INTERNAL_MESSAGE_CHANNEL;
     })();
 
-    const resolvedTo = (() => {
-      const explicit =
-        typeof request.to === "string" && request.to.trim()
-          ? request.to.trim()
-          : undefined;
-      if (explicit) return explicit;
-      if (isDeliverableMessageProvider(resolvedProvider)) {
-        return lastTo || undefined;
-      }
-      return undefined;
-    })();
-
-    const sanitizedTo = (() => {
-      // If we derived a WhatsApp recipient from session "lastTo", ensure it is still valid
-      // for the configured allowlist. Otherwise, fall back to the first allowed number so
-      // voice wake doesn't silently route to stale/test recipients.
-      if (resolvedProvider !== "whatsapp") return resolvedTo;
-      const explicit =
-        typeof request.to === "string" && request.to.trim()
-          ? request.to.trim()
-          : undefined;
-      if (explicit) {
-        if (!resolvedTo) return resolvedTo;
-        return normalizeWhatsAppTarget(resolvedTo) ?? resolvedTo;
-      }
-      if (resolvedTo && isWhatsAppGroupJid(resolvedTo)) {
-        return normalizeWhatsAppTarget(resolvedTo) ?? resolvedTo;
-      }
-
+    const explicitTo =
+      typeof request.to === "string" && request.to.trim()
+        ? request.to.trim()
+        : undefined;
+    const deliveryTargetMode = explicitTo
+      ? "explicit"
+      : isDeliverableMessageChannel(resolvedChannel)
+        ? "implicit"
+        : undefined;
+    let resolvedTo =
+      explicitTo ||
+      (isDeliverableMessageChannel(resolvedChannel)
+        ? lastTo || undefined
+        : undefined);
+    if (!resolvedTo && isDeliverableMessageChannel(resolvedChannel)) {
       const cfg = cfgForAgent ?? loadConfig();
-      const rawAllow = cfg.whatsapp?.allowFrom ?? [];
-      if (rawAllow.includes("*")) {
-        return resolvedTo
-          ? (normalizeWhatsAppTarget(resolvedTo) ?? resolvedTo)
-          : resolvedTo;
+      const fallback = resolveOutboundTarget({
+        channel: resolvedChannel,
+        cfg,
+        accountId: sessionEntry?.lastAccountId ?? undefined,
+        mode: "implicit",
+      });
+      if (fallback.ok) {
+        resolvedTo = fallback.to;
       }
-      const allowFrom = rawAllow
-        .map((val) => normalizeE164(val))
-        .filter((val) => val.length > 1);
-      if (allowFrom.length === 0) return resolvedTo;
-
-      const normalizedLast =
-        typeof resolvedTo === "string" && resolvedTo.trim()
-          ? normalizeWhatsAppTarget(resolvedTo)
-          : undefined;
-      if (normalizedLast && allowFrom.includes(normalizedLast)) {
-        return normalizedLast;
-      }
-      return allowFrom[0];
-    })();
+    }
 
     const deliver =
-      request.deliver === true &&
-      resolvedProvider !== INTERNAL_MESSAGE_PROVIDER;
+      request.deliver === true && resolvedChannel !== INTERNAL_MESSAGE_CHANNEL;
 
     const accepted = {
       runId,
@@ -324,15 +287,16 @@ export const agentHandlers: GatewayRequestHandlers = {
       {
         message,
         images,
-        to: sanitizedTo,
+        to: resolvedTo,
         sessionId: resolvedSessionId,
         sessionKey: requestedSessionKey,
         thinking: request.thinking,
         deliver,
-        provider: resolvedProvider,
+        deliveryTargetMode,
+        channel: resolvedChannel,
         timeout: request.timeout?.toString(),
         bestEffortDeliver,
-        messageProvider: resolvedProvider,
+        messageChannel: resolvedChannel,
         runId,
         lane: request.lane,
         extraSystemPrompt: request.extraSystemPrompt,
