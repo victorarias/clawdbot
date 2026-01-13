@@ -1360,16 +1360,19 @@ export async function applyAuthChoice(params: {
       provider: "synthetic",
       mode: "api_key",
     });
-    if (params.setDefaultModel) {
-      nextConfig = applySyntheticConfig(nextConfig);
-      await params.prompter.note(
-        `Default model set to ${SYNTHETIC_DEFAULT_MODEL_REF}`,
-        "Model configured",
-      );
-    } else {
-      nextConfig = applySyntheticProviderConfig(nextConfig);
-      agentModelOverride = SYNTHETIC_DEFAULT_MODEL_REF;
-      await noteAgentModel(SYNTHETIC_DEFAULT_MODEL_REF);
+    {
+      const applied = await applyDefaultModelChoice({
+        config: nextConfig,
+        setDefaultModel: params.setDefaultModel,
+        defaultModel: SYNTHETIC_DEFAULT_MODEL_REF,
+        applyDefaultConfig: applySyntheticConfig,
+        applyProviderConfig: applySyntheticProviderConfig,
+        noteDefault: SYNTHETIC_DEFAULT_MODEL_REF,
+        noteAgentModel,
+        prompter: params.prompter,
+      });
+      nextConfig = applied.config;
+      agentModelOverride = applied.agentModelOverride ?? agentModelOverride;
     }
   } else if (params.authChoice === "apiKey") {
     const key = await params.prompter.text({
