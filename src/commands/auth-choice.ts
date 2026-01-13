@@ -1216,25 +1216,11 @@ export async function applyAuthChoice(params: {
       );
     }
   } else if (params.authChoice === "gemini-api-key") {
-    let hasCredential = false;
-    const envKey = resolveEnvApiKey("google");
-    if (envKey) {
-      const useExisting = await params.prompter.confirm({
-        message: `Use existing GEMINI_API_KEY (${envKey.source}, ${formatApiKeyPreview(envKey.apiKey)})?`,
-        initialValue: true,
-      });
-      if (useExisting) {
-        await setGeminiApiKey(envKey.apiKey, params.agentDir);
-        hasCredential = true;
-      }
-    }
-    if (!hasCredential) {
-      const key = await params.prompter.text({
-        message: "Enter Gemini API key",
-        validate: validateApiKeyInput,
-      });
-      await setGeminiApiKey(normalizeApiKeyInput(String(key)), params.agentDir);
-    }
+    const key = await params.prompter.text({
+      message: "Enter Gemini API key",
+      validate: (value) => (value?.trim() ? undefined : "Required"),
+    });
+    await setGeminiApiKey(String(key).trim(), params.agentDir);
     nextConfig = applyAuthProfileConfig(nextConfig, {
       profileId: "google:default",
       provider: "google",
