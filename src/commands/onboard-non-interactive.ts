@@ -42,6 +42,7 @@ import {
   applyMoonshotConfig,
   applyOpencodeZenConfig,
   applyOpenrouterConfig,
+  applySyntheticConfig,
   applyZaiConfig,
   setAnthropicApiKey,
   setGeminiApiKey,
@@ -49,6 +50,7 @@ import {
   setMoonshotApiKey,
   setOpencodeZenApiKey,
   setOpenrouterApiKey,
+  setSyntheticApiKey,
   setZaiApiKey,
 } from "./onboard-auth.js";
 import {
@@ -317,6 +319,25 @@ export async function runNonInteractiveOnboarding(
       mode: "api_key",
     });
     nextConfig = applyMoonshotConfig(nextConfig);
+  } else if (authChoice === "synthetic-api-key") {
+    const resolved = await resolveNonInteractiveApiKey({
+      provider: "synthetic",
+      cfg: baseConfig,
+      flagValue: opts.syntheticApiKey,
+      flagName: "--synthetic-api-key",
+      envVar: "SYNTHETIC_API_KEY",
+      runtime,
+    });
+    if (!resolved) return;
+    if (resolved.source !== "profile") {
+      await setSyntheticApiKey(resolved.key);
+    }
+    nextConfig = applyAuthProfileConfig(nextConfig, {
+      profileId: "synthetic:default",
+      provider: "synthetic",
+      mode: "api_key",
+    });
+    nextConfig = applySyntheticConfig(nextConfig);
   } else if (
     authChoice === "minimax-cloud" ||
     authChoice === "minimax-api" ||

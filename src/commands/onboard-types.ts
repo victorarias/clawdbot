@@ -13,6 +13,7 @@ export type AuthChoice =
   | "openai-api-key"
   | "openrouter-api-key"
   | "moonshot-api-key"
+  | "synthetic-api-key"
   | "codex-cli"
   | "antigravity"
   | "apiKey"
@@ -54,6 +55,7 @@ export type OnboardOptions = {
   geminiApiKey?: string;
   zaiApiKey?: string;
   minimaxApiKey?: string;
+  syntheticApiKey?: string;
   opencodeZenApiKey?: string;
   gatewayPort?: number;
   gatewayBind?: GatewayBind;
