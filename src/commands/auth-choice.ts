@@ -5,6 +5,7 @@ import {
   CODEX_CLI_PROFILE_ID,
   ensureAuthProfileStore,
   listProfilesForProvider,
+  resolveAuthProfileOrder,
   upsertAuthProfile,
 } from "../agents/auth-profiles.js";
 import { DEFAULT_MODEL, DEFAULT_PROVIDER } from "../agents/defaults.js";
@@ -40,9 +41,9 @@ import {
   applyMinimaxApiConfig,
   applyMinimaxApiProviderConfig,
   applyMinimaxConfig,
-  applyMinimaxHostedConfig,
-  applyMinimaxHostedProviderConfig,
   applyMinimaxProviderConfig,
+  applyMoonshotConfig,
+  applyMoonshotProviderConfig,
   applyOpencodeZenConfig,
   applyOpencodeZenProviderConfig,
   applyOpenrouterConfig,
@@ -57,6 +58,7 @@ import {
   setAnthropicApiKey,
   setGeminiApiKey,
   setMinimaxApiKey,
+  setMoonshotApiKey,
   setOpencodeZenApiKey,
   setOpenrouterApiKey,
   setSyntheticApiKey,
@@ -66,7 +68,6 @@ import {
 } from "./onboard-auth.js";
 import { openUrl } from "./onboard-helpers.js";
 import type { AuthChoice } from "./onboard-types.js";
-import { loginChutes } from "./chutes-oauth.js";
 import {
   applyOpenAICodexModelDefault,
   OPENAI_CODEX_DEFAULT_MODEL,
@@ -102,56 +103,6 @@ function normalizeApiKeyInput(raw: string): string {
 
 const validateApiKeyInput = (value: string) =>
   normalizeApiKeyInput(value).length > 0 ? undefined : "Required";
-
-const validateRequiredInput = (value: string) =>
-  value.trim().length > 0 ? undefined : "Required";
-
-function createVpsAwareOAuthHandlers(params: {
-  isRemote: boolean;
-  prompter: WizardPrompter;
-  runtime: RuntimeEnv;
-  spin: ReturnType<WizardPrompter["progress"]>;
-  localBrowserMessage: string;
-}): {
-  onAuth: (event: { url: string }) => Promise<void>;
-  onPrompt: (prompt: {
-    message: string;
-    placeholder?: string;
-  }) => Promise<string>;
-} {
-  let manualCodePromise: Promise<string> | undefined;
-
-  return {
-    onAuth: async ({ url }) => {
-      if (params.isRemote) {
-        params.spin.stop("OAuth URL ready");
-        params.runtime.log(
-          `\nOpen this URL in your LOCAL browser:\n\n${url}\n`,
-        );
-        manualCodePromise = params.prompter
-          .text({
-            message: "Paste the redirect URL (or authorization code)",
-            validate: validateRequiredInput,
-          })
-          .then((value) => String(value));
-        return;
-      }
-
-      params.spin.update(params.localBrowserMessage);
-      await openUrl(url);
-      params.runtime.log(`Open: ${url}`);
-    },
-    onPrompt: async (prompt) => {
-      if (manualCodePromise) return manualCodePromise;
-      const code = await params.prompter.text({
-        message: prompt.message,
-        placeholder: prompt.placeholder,
-        validate: validateRequiredInput,
-      });
-      return String(code);
-    },
-  };
-}
 
 function formatApiKeyPreview(
   raw: string,
@@ -197,55 +148,6 @@ async function applyDefaultModelChoice(params: {
   await params.noteAgentModel(params.defaultModel);
   return { config: next, agentModelOverride: params.defaultModel };
 }
-||||||| parent of 3da1afed6 (feat: add GitHub Copilot provider)
-const DEFAULT_KEY_PREVIEW = { head: 4, tail: 4 };
-
-function normalizeApiKeyInput(raw: string): string {
-  const trimmed = String(raw ?? "").trim();
-  if (!trimmed) return "";
-
-  // Handle shell-style assignments: export KEY="value" or KEY=value
-  const assignmentMatch = trimmed.match(
-    /^(?:export\s+)?[A-Za-z_][A-Za-z0-9_]*\s*=\s*(.+)$/,
-  );
-  const valuePart = assignmentMatch ? assignmentMatch[1].trim() : trimmed;
-
-  const unquoted =
-    valuePart.length >= 2 &&
-    ((valuePart.startsWith('"') && valuePart.endsWith('"')) ||
-      (valuePart.startsWith("'") && valuePart.endsWith("'")) ||
-      (valuePart.startsWith("`") && valuePart.endsWith("`")))
-      ? valuePart.slice(1, -1)
-      : valuePart;
-
-  const withoutSemicolon = unquoted.endsWith(";")
-    ? unquoted.slice(0, -1)
-    : unquoted;
-
-  return withoutSemicolon.trim();
-}
-
-const validateApiKeyInput = (value: unknown) =>
-  normalizeApiKeyInput(String(value ?? "")).length > 0 ? undefined : "Required";
-
-function formatApiKeyPreview(
-  raw: string,
-  opts: { head?: number; tail?: number } = {},
-): string {
-  const trimmed = raw.trim();
-  if (!trimmed) return "…";
-  const head = opts.head ?? DEFAULT_KEY_PREVIEW.head;
-  const tail = opts.tail ?? DEFAULT_KEY_PREVIEW.tail;
-  if (trimmed.length <= head + tail) {
-    const shortHead = Math.min(2, trimmed.length);
-    const shortTail = Math.min(2, trimmed.length - shortHead);
-    if (shortTail <= 0) {
-      return `${trimmed.slice(0, shortHead)}…`;
-    }
-    return `${trimmed.slice(0, shortHead)}…${trimmed.slice(-shortTail)}`;
-  }
-  return `${trimmed.slice(0, head)}…${trimmed.slice(-tail)}`;
-}
 export async function warnIfModelConfigLooksOff(
   config: ClawdbotConfig,
   prompter: WizardPrompter,
@@ -257,20 +159,20 @@ export async function warnIfModelConfigLooksOff(
   const configWithModel =
     agentModelOverride && agentModelOverride.length > 0
       ? {
-        ...config,
-        agents: {
-          ...config.agents,
-          defaults: {
-            ...config.agents?.defaults,
-            model: {
-              ...(typeof config.agents?.defaults?.model === "object"
-                ? config.agents.defaults.model
-                : undefined),
-              primary: agentModelOverride,
+          ...config,
+          agents: {
+            ...config.agents,
+            defaults: {
+              ...config.agents?.defaults,
+              model: {
+                ...(typeof config.agents?.defaults?.model === "object"
+                  ? config.agents.defaults.model
+                  : undefined),
+                primary: agentModelOverride,
+              },
             },
           },
-        },
-      }
+        }
       : config;
   const ref = resolveConfiguredModelRef({
     cfg: configWithModel,
@@ -442,8 +344,8 @@ export async function applyAuthChoice(params: {
     const storeWithKeychain = hasClaudeCli
       ? store
       : ensureAuthProfileStore(params.agentDir, {
-        allowKeychainPrompt: true,
-      });
+          allowKeychainPrompt: true,
+        });
 
     if (!storeWithKeychain.profiles[CLAUDE_CLI_PROFILE_ID]) {
       if (process.stdin.isTTY) {
@@ -830,245 +732,20 @@ export async function applyAuthChoice(params: {
         "OAuth help",
       );
     }
-  } else if (params.authChoice === "moonshot-api-key") {
-    let hasCredential = false;
-    const envKey = resolveEnvApiKey("moonshot");
-    if (envKey) {
-      const useExisting = await params.prompter.confirm({
-        message: `Use existing MOONSHOT_API_KEY (${envKey.source}, ${formatApiKeyPreview(envKey.apiKey)})?`,
-        initialValue: true,
-      });
-      if (useExisting) {
-        await setMoonshotApiKey(envKey.apiKey, params.agentDir);
-        hasCredential = true;
-      }
-    }
-    if (!hasCredential) {
-      const key = await params.prompter.text({
-        message: "Enter Moonshot API key",
-        validate: (value) => (value?.trim() ? undefined : "Required"),
-      });
-      await setMoonshotApiKey(String(key).trim(), params.agentDir);
-    }
-    nextConfig = applyAuthProfileConfig(nextConfig, {
-      profileId: "moonshot:default",
-      provider: "moonshot",
-      mode: "api_key",
-    });
-    if (params.setDefaultModel) {
-      nextConfig = applyMoonshotConfig(nextConfig);
-    } else {
-      nextConfig = applyMoonshotProviderConfig(nextConfig);
-      agentModelOverride = MOONSHOT_DEFAULT_MODEL_REF;
-      await noteAgentModel(MOONSHOT_DEFAULT_MODEL_REF);
-    }
-||||||| parent of 3da1afed6 (feat: add GitHub Copilot provider)
-  } else if (params.authChoice === "openrouter-api-key") {
-    const store = ensureAuthProfileStore(params.agentDir, {
-      allowKeychainPrompt: false,
-    });
-    const profileOrder = resolveAuthProfileOrder({
-      cfg: nextConfig,
-      store,
-      provider: "openrouter",
-    });
-    const existingProfileId = profileOrder.find((profileId) =>
-      Boolean(store.profiles[profileId]),
-    );
-    const existingCred = existingProfileId
-      ? store.profiles[existingProfileId]
-      : undefined;
-    let profileId = "openrouter:default";
-    let mode: "api_key" | "oauth" | "token" = "api_key";
-    let hasCredential = false;
-
-    if (existingProfileId && existingCred?.type) {
-      profileId = existingProfileId;
-      mode =
-        existingCred.type === "oauth"
-          ? "oauth"
-          : existingCred.type === "token"
-            ? "token"
-            : "api_key";
-      hasCredential = true;
-    }
-
-    if (!hasCredential) {
-      const envKey = resolveEnvApiKey("openrouter");
-      if (envKey) {
-        const useExisting = await params.prompter.confirm({
-          message: `Use existing OPENROUTER_API_KEY (${envKey.source}, ${formatApiKeyPreview(envKey.apiKey)})?`,
-          initialValue: true,
-        });
-        if (useExisting) {
-          await setOpenrouterApiKey(envKey.apiKey, params.agentDir);
-          hasCredential = true;
-        }
-      }
-    }
-
-    if (!hasCredential) {
-      const key = await params.prompter.text({
-        message: "Enter OpenRouter API key",
-        validate: validateApiKeyInput,
-      });
-      await setOpenrouterApiKey(
-        normalizeApiKeyInput(String(key)),
-        params.agentDir,
-      );
-      hasCredential = true;
-    }
-
-    if (hasCredential) {
-      nextConfig = applyAuthProfileConfig(nextConfig, {
-        profileId,
-        provider: "openrouter",
-        mode,
-      });
-    }
-    if (params.setDefaultModel) {
-      nextConfig = applyOpenrouterConfig(nextConfig);
-      await params.prompter.note(
-        `Default model set to ${OPENROUTER_DEFAULT_MODEL_REF}`,
-        "Model configured",
-      );
-    } else {
-      nextConfig = applyOpenrouterProviderConfig(nextConfig);
-      agentModelOverride = OPENROUTER_DEFAULT_MODEL_REF;
-      await noteAgentModel(OPENROUTER_DEFAULT_MODEL_REF);
-    }
-  } else if (params.authChoice === "moonshot-api-key") {
-    let hasCredential = false;
-    const envKey = resolveEnvApiKey("moonshot");
-    if (envKey) {
-      const useExisting = await params.prompter.confirm({
-        message: `Use existing MOONSHOT_API_KEY (${envKey.source}, ${formatApiKeyPreview(envKey.apiKey)})?`,
-        initialValue: true,
-      });
-      if (useExisting) {
-        await setMoonshotApiKey(envKey.apiKey, params.agentDir);
-        hasCredential = true;
-      }
-    }
-    if (!hasCredential) {
-      const key = await params.prompter.text({
-        message: "Enter Moonshot API key",
-        validate: validateApiKeyInput,
-      });
-      await setMoonshotApiKey(
-        normalizeApiKeyInput(String(key)),
-        params.agentDir,
-      );
-    }
-    nextConfig = applyAuthProfileConfig(nextConfig, {
-      profileId: "moonshot:default",
-      provider: "moonshot",
-      mode: "api_key",
-    });
-    if (params.setDefaultModel) {
-      nextConfig = applyMoonshotConfig(nextConfig);
-    } else {
-      nextConfig = applyMoonshotProviderConfig(nextConfig);
-      agentModelOverride = MOONSHOT_DEFAULT_MODEL_REF;
-      await noteAgentModel(MOONSHOT_DEFAULT_MODEL_REF);
-    }
-  } else if (params.authChoice === "chutes") {
+  } else if (params.authChoice === "openai-codex") {
     const isRemote = isRemoteEnvironment();
-    const redirectUri =
-      process.env.CHUTES_OAUTH_REDIRECT_URI?.trim() ||
-      "http://127.0.0.1:1456/oauth-callback";
-    const scopes =
-      process.env.CHUTES_OAUTH_SCOPES?.trim() || "openid profile chutes:invoke";
-    const clientId =
-      process.env.CHUTES_CLIENT_ID?.trim() ||
-      String(
-        await params.prompter.text({
-          message: "Enter Chutes OAuth client id",
-          placeholder: "cid_xxx",
-          validate: (value) => (value?.trim() ? undefined : "Required"),
-        }),
-      ).trim();
-    const clientSecret = process.env.CHUTES_CLIENT_SECRET?.trim() || undefined;
-
     await params.prompter.note(
       isRemote
         ? [
             "You are running in a remote/VPS environment.",
             "A URL will be shown for you to open in your LOCAL browser.",
             "After signing in, paste the redirect URL back here.",
-            "",
-            `Redirect URI: ${redirectUri}`,
           ].join("\n")
         : [
-            "Browser will open for Chutes authentication.",
+            "Browser will open for OpenAI authentication.",
             "If the callback doesn't auto-complete, paste the redirect URL.",
-            "",
-            `Redirect URI: ${redirectUri}`,
+            "OpenAI OAuth uses localhost:1455 for the callback.",
           ].join("\n"),
-      "Chutes OAuth",
-    );
-
-    const spin = params.prompter.progress("Starting OAuth flow…");
-    try {
-      const { onAuth, onPrompt } = createVpsAwareOAuthHandlers({
-        isRemote,
-        prompter: params.prompter,
-        runtime: params.runtime,
-        spin,
-        openUrl,
-        localBrowserMessage: "Complete sign-in in browser…",
-      });
-
-      const creds = await loginChutes({
-        app: {
-          clientId,
-          clientSecret,
-          redirectUri,
-          scopes: scopes.split(/\s+/).filter(Boolean),
-        },
-        manual: isRemote,
-        onAuth,
-        onPrompt,
-        onProgress: (msg) => spin.update(msg),
-      });
-
-      spin.stop("Chutes OAuth complete");
-      const email = creds.email?.trim() || "default";
-      const profileId = `chutes:${email}`;
-
-      await writeOAuthCredentials("chutes", creds, params.agentDir);
-      nextConfig = applyAuthProfileConfig(nextConfig, {
-        profileId,
-        provider: "chutes",
-        mode: "oauth",
-      });
-    } catch (err) {
-      spin.stop("Chutes OAuth failed");
-      params.runtime.error(String(err));
-      await params.prompter.note(
-        [
-          "Trouble with OAuth?",
-          "Verify CHUTES_CLIENT_ID (and CHUTES_CLIENT_SECRET if required).",
-          `Verify the OAuth app redirect URI includes: ${redirectUri}`,
-          "Chutes docs: https://chutes.ai/docs/sign-in-with-chutes/overview",
-        ].join("\n"),
-        "OAuth help",
-      );
-    }
-  } else if (params.authChoice === "openai-codex") {
-    const isRemote = isRemoteEnvironment();
-    await params.prompter.note(
-      isRemote
-        ? [
-          "You are running in a remote/VPS environment.",
-          "A URL will be shown for you to open in your LOCAL browser.",
-          "After signing in, paste the redirect URL back here.",
-        ].join("\n")
-        : [
-          "Browser will open for OpenAI authentication.",
-          "If the callback doesn't auto-complete, paste the redirect URL.",
-          "OpenAI OAuth uses localhost:1455 for the callback.",
-        ].join("\n"),
       "OpenAI Codex OAuth",
     );
     const spin = params.prompter.progress("Starting OAuth flow…");
@@ -1149,15 +826,15 @@ export async function applyAuthChoice(params: {
     await params.prompter.note(
       isRemote
         ? [
-          "You are running in a remote/VPS environment.",
-          "A URL will be shown for you to open in your LOCAL browser.",
-          "After signing in, copy the redirect URL and paste it back here.",
-        ].join("\n")
+            "You are running in a remote/VPS environment.",
+            "A URL will be shown for you to open in your LOCAL browser.",
+            "After signing in, copy the redirect URL and paste it back here.",
+          ].join("\n")
         : [
-          "Browser will open for Google authentication.",
-          "Sign in with your Google account that has Antigravity access.",
-          "The callback will be captured automatically on localhost:51121.",
-        ].join("\n"),
+            "Browser will open for Google authentication.",
+            "Sign in with your Google account that has Antigravity access.",
+            "The callback will be captured automatically on localhost:51121.",
+          ].join("\n"),
       "Google Antigravity OAuth",
     );
     const spin = params.prompter.progress("Starting OAuth flow…");
@@ -1215,11 +892,11 @@ export async function applyAuthChoice(params: {
                 ...nextConfig.agents?.defaults,
                 model: {
                   ...(existingModel &&
-                    "fallbacks" in (existingModel as Record<string, unknown>)
+                  "fallbacks" in (existingModel as Record<string, unknown>)
                     ? {
-                      fallbacks: (existingModel as { fallbacks?: string[] })
-                        .fallbacks,
-                    }
+                        fallbacks: (existingModel as { fallbacks?: string[] })
+                          .fallbacks,
+                      }
                     : undefined),
                   primary: modelKey,
                 },
@@ -1348,31 +1025,6 @@ export async function applyAuthChoice(params: {
       nextConfig = applied.config;
       agentModelOverride = applied.agentModelOverride ?? agentModelOverride;
     }
-  } else if (params.authChoice === "synthetic-api-key") {
-    const key = await params.prompter.text({
-      message: "Enter Synthetic API key",
-      validate: (value) => (value?.trim() ? undefined : "Required"),
-    });
-    await setSyntheticApiKey(String(key).trim(), params.agentDir);
-    nextConfig = applyAuthProfileConfig(nextConfig, {
-      profileId: "synthetic:default",
-      provider: "synthetic",
-      mode: "api_key",
-    });
-    {
-      const applied = await applyDefaultModelChoice({
-        config: nextConfig,
-        setDefaultModel: params.setDefaultModel,
-        defaultModel: SYNTHETIC_DEFAULT_MODEL_REF,
-        applyDefaultConfig: applySyntheticConfig,
-        applyProviderConfig: applySyntheticProviderConfig,
-        noteDefault: SYNTHETIC_DEFAULT_MODEL_REF,
-        noteAgentModel,
-        prompter: params.prompter,
-      });
-      nextConfig = applied.config;
-      agentModelOverride = applied.agentModelOverride ?? agentModelOverride;
-    }
   } else if (params.authChoice === "apiKey") {
     const key = await params.prompter.text({
       message: "Enter Anthropic API key",
@@ -1384,7 +1036,10 @@ export async function applyAuthChoice(params: {
       provider: "anthropic",
       mode: "api_key",
     });
-  } else if (params.authChoice === "minimax-cloud" || params.authChoice === "minimax-api") {
+  } else if (
+    params.authChoice === "minimax-cloud" ||
+    params.authChoice === "minimax-api"
+  ) {
     const modelId = "MiniMax-M2.1";
     let hasCredential = false;
     const envKey = resolveEnvApiKey("minimax");

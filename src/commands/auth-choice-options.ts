@@ -54,31 +54,6 @@ export type AuthChoiceGroup = {
   options: AuthChoiceOption[];
 };
 
-export const AUTH_CHOICE_CLI_VALUES: AuthChoice[] = [
-  "setup-token",
-  "claude-cli",
-  "claude-sdk",
-  "token",
-  "chutes",
-  "openai-codex",
-  "openai-api-key",
-  "openrouter-api-key",
-  "moonshot-api-key",
-  "synthetic-api-key",
-  "codex-cli",
-  "antigravity",
-  "gemini-api-key",
-  "zai-api-key",
-  "apiKey",
-  "minimax-cloud",
-  "minimax-api",
-  "minimax-api-lightning",
-  "minimax",
-  "opencode-zen",
-  "github-copilot",
-  "skip",
-];
-
 const AUTH_CHOICE_GROUP_DEFS: {
   value: AuthChoiceGroupId;
   label: string;
@@ -101,18 +76,7 @@ const AUTH_CHOICE_GROUP_DEFS: {
     value: "minimax",
     label: "MiniMax",
     hint: "M2.1 (recommended)",
-    choices: [
-      "minimax-cloud",
-      "minimax-api-lightning",
-      "minimax",
-      "minimax-api",
-    ],
-  },
-  {
-    value: "synthetic",
-    label: "Synthetic",
-    hint: "Anthropic-compatible (multi-model)",
-    choices: ["synthetic-api-key"],
+    choices: ["minimax-api", "minimax"],
   },
   {
     value: "synthetic",
@@ -264,16 +228,7 @@ export function buildAuthChoiceOptions(params: {
     label: "OpenCode Zen (multi-model proxy)",
     hint: "Claude, GPT, Gemini via opencode.ai/zen",
   });
-  options.push({
-    value: "minimax-cloud",
-    label: "MiniMax M2.1 (minimax.io) — Anthropic-compatible",
-  });
   options.push({ value: "minimax-api", label: "MiniMax M2.1" });
-  options.push({
-    value: "minimax-api-lightning",
-    label: "MiniMax M2.1 Lightning",
-    hint: "Faster, lower cost",
-  });
   options.push({ value: "minimax", label: "Minimax M2.1 (LM Studio)" });
   if (params.includeSkip) {
     options.push({ value: "skip", label: "Skip for now" });

@@ -356,11 +356,7 @@ export async function runNonInteractiveOnboarding(
       provider: "minimax",
       mode: "api_key",
     });
-    const modelId =
-      authChoice === "minimax-api-lightning"
-        ? "MiniMax-M2.1-lightning"
-        : "MiniMax-M2.1";
-    nextConfig = applyMinimaxApiConfig(nextConfig, modelId);
+    nextConfig = applyMinimaxApiConfig(nextConfig, "MiniMax-M2.1");
   } else if (authChoice === "claude-sdk") {
     const store = ensureAuthProfileStore(undefined, {
       allowKeychainPrompt: false,

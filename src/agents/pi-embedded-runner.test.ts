@@ -24,6 +24,7 @@ vi.mock("./model-auth.js", () => ({
   ensureAuthProfileStore: vi.fn(() => ({ profiles: {} })),
   resolveAuthProfileOrder: vi.fn(() => []),
   resolveEnvApiKey: vi.fn(() => null),
+  resolveModelAuthMode: vi.fn(() => "api_key"),
 }));
 
 vi.mock("../providers/github-copilot-token.js", async () => {
@@ -32,6 +33,12 @@ vi.mock("../providers/github-copilot-token.js", async () => {
   >("../providers/github-copilot-token.js");
   return {
     ...actual,
+    resolveCopilotApiToken: vi.fn(
+      async ({ githubToken }: { githubToken: string }) => ({
+        token: `${githubToken}-copilot`,
+        baseUrl: "https://copilot.example.com",
+      }),
+    ),
     streamSimple: (model: { api: string; provider: string; id: string }) => {
       if (model.id === "mock-error") {
         throw new Error("boom");
@@ -427,12 +434,12 @@ describe("applyGoogleTurnOrderingFix", () => {
   });
 });
 
-describe("runEmbeddedPiAgent", () => {
-  it("exchanges github token for copilot token", async () => {
-    const { getApiKeyForModel } = await import("./model-auth.js");
-    const { resolveCopilotApiToken } = await import(
-      "../providers/github-copilot-token.js"
-    );
+describe("limitHistoryTurns", () => {
+  const makeMessages = (roles: ("user" | "assistant")[]): AgentMessage[] =>
+    roles.map((role, i) => ({
+      role,
+      content: [{ type: "text", text: `message ${i}` }],
+    }));
 
   it("returns all messages when limit is undefined", () => {
     const messages = makeMessages(["user", "assistant", "user", "assistant"]);
@@ -529,17 +536,23 @@ describe("getDmHistoryLimitFromSessionKey", () => {
   });
 
   it("returns dmHistoryLimit for telegram provider", () => {
-    const config = { telegram: { dmHistoryLimit: 15 } } as ClawdbotConfig;
+    const config = {
+      channels: { telegram: { dmHistoryLimit: 15 } },
+    } as ClawdbotConfig;
     expect(getDmHistoryLimitFromSessionKey("telegram:dm:123", config)).toBe(15);
   });
 
   it("returns dmHistoryLimit for whatsapp provider", () => {
-    const config = { whatsapp: { dmHistoryLimit: 20 } } as ClawdbotConfig;
+    const config = {
+      channels: { whatsapp: { dmHistoryLimit: 20 } },
+    } as ClawdbotConfig;
     expect(getDmHistoryLimitFromSessionKey("whatsapp:dm:123", config)).toBe(20);
   });
 
   it("returns dmHistoryLimit for agent-prefixed session keys", () => {
-    const config = { telegram: { dmHistoryLimit: 10 } } as ClawdbotConfig;
+    const config = {
+      channels: { telegram: { dmHistoryLimit: 10 } },
+    } as ClawdbotConfig;
     expect(
       getDmHistoryLimitFromSessionKey("agent:main:telegram:dm:123", config),
     ).toBe(10);
@@ -547,8 +560,10 @@ describe("getDmHistoryLimitFromSessionKey", () => {
 
   it("returns undefined for non-dm session kinds", () => {
     const config = {
-      slack: { dmHistoryLimit: 10 },
-      telegram: { dmHistoryLimit: 15 },
+      channels: {
+        slack: { dmHistoryLimit: 10 },
+        telegram: { dmHistoryLimit: 15 },
+      },
     } as ClawdbotConfig;
     expect(
       getDmHistoryLimitFromSessionKey("agent:beta:slack:channel:C1", config),
@@ -559,14 +574,16 @@ describe("getDmHistoryLimitFromSessionKey", () => {
   });
 
   it("returns undefined for unknown provider", () => {
-    const config = { telegram: { dmHistoryLimit: 15 } } as ClawdbotConfig;
+    const config = {
+      channels: { telegram: { dmHistoryLimit: 15 } },
+    } as ClawdbotConfig;
     expect(
       getDmHistoryLimitFromSessionKey("unknown:dm:123", config),
     ).toBeUndefined();
   });
 
   it("returns undefined when provider config has no dmHistoryLimit", () => {
-    const config = { telegram: {} } as ClawdbotConfig;
+    const config = { channels: { telegram: {} } } as ClawdbotConfig;
     expect(
       getDmHistoryLimitFromSessionKey("telegram:dm:123", config),
     ).toBeUndefined();
@@ -584,7 +601,9 @@ describe("getDmHistoryLimitFromSessionKey", () => {
     ] as const;
 
     for (const provider of providers) {
-      const config = { [provider]: { dmHistoryLimit: 5 } } as ClawdbotConfig;
+      const config = {
+        channels: { [provider]: { dmHistoryLimit: 5 } },
+      } as ClawdbotConfig;
       expect(
         getDmHistoryLimitFromSessionKey(`${provider}:dm:123`, config),
       ).toBe(5);
@@ -605,9 +624,11 @@ describe("getDmHistoryLimitFromSessionKey", () => {
     for (const provider of providers) {
       // Test per-DM override takes precedence
       const configWithOverride = {
-        [provider]: {
-          dmHistoryLimit: 20,
-          dms: { user123: { historyLimit: 7 } },
+        channels: {
+          [provider]: {
+            dmHistoryLimit: 20,
+            dms: { user123: { historyLimit: 7 } },
+          },
         },
       } as ClawdbotConfig;
       expect(
@@ -637,9 +658,11 @@ describe("getDmHistoryLimitFromSessionKey", () => {
 
   it("returns per-DM override when set", () => {
     const config = {
-      telegram: {
-        dmHistoryLimit: 15,
-        dms: { "123": { historyLimit: 5 } },
+      channels: {
+        telegram: {
+          dmHistoryLimit: 15,
+          dms: { "123": { historyLimit: 5 } },
+        },
       },
     } as ClawdbotConfig;
     expect(getDmHistoryLimitFromSessionKey("telegram:dm:123", config)).toBe(5);
@@ -647,9 +670,11 @@ describe("getDmHistoryLimitFromSessionKey", () => {
 
   it("falls back to provider default when per-DM not set", () => {
     const config = {
-      telegram: {
-        dmHistoryLimit: 15,
-        dms: { "456": { historyLimit: 5 } },
+      channels: {
+        telegram: {
+          dmHistoryLimit: 15,
+          dms: { "456": { historyLimit: 5 } },
+        },
       },
     } as ClawdbotConfig;
     expect(getDmHistoryLimitFromSessionKey("telegram:dm:123", config)).toBe(15);
@@ -657,9 +682,11 @@ describe("getDmHistoryLimitFromSessionKey", () => {
 
   it("returns per-DM override for agent-prefixed keys", () => {
     const config = {
-      telegram: {
-        dmHistoryLimit: 20,
-        dms: { "789": { historyLimit: 3 } },
+      channels: {
+        telegram: {
+          dmHistoryLimit: 20,
+          dms: { "789": { historyLimit: 3 } },
+        },
       },
     } as ClawdbotConfig;
     expect(
@@ -669,9 +696,11 @@ describe("getDmHistoryLimitFromSessionKey", () => {
 
   it("handles userId with colons (e.g., email)", () => {
     const config = {
-      msteams: {
-        dmHistoryLimit: 10,
-        dms: { "user@example.com": { historyLimit: 7 } },
+      channels: {
+        msteams: {
+          dmHistoryLimit: 10,
+          dms: { "user@example.com": { historyLimit: 7 } },
+        },
       },
     } as ClawdbotConfig;
     expect(
@@ -681,8 +710,10 @@ describe("getDmHistoryLimitFromSessionKey", () => {
 
   it("returns undefined when per-DM historyLimit is not set", () => {
     const config = {
-      telegram: {
-        dms: { "123": {} },
+      channels: {
+        telegram: {
+          dms: { "123": {} },
+        },
       },
     } as ClawdbotConfig;
     expect(
@@ -692,9 +723,11 @@ describe("getDmHistoryLimitFromSessionKey", () => {
 
   it("returns 0 when per-DM historyLimit is explicitly 0 (unlimited)", () => {
     const config = {
-      telegram: {
-        dmHistoryLimit: 15,
-        dms: { "123": { historyLimit: 0 } },
+      channels: {
+        telegram: {
+          dmHistoryLimit: 15,
+          dms: { "123": { historyLimit: 0 } },
+        },
       },
     } as ClawdbotConfig;
     expect(getDmHistoryLimitFromSessionKey("telegram:dm:123", config)).toBe(0);
@@ -702,6 +735,76 @@ describe("getDmHistoryLimitFromSessionKey", () => {
 });
 
 describe("runEmbeddedPiAgent", () => {
+  it(
+    "exchanges github token for copilot token",
+    { timeout: 10_000 },
+    async () => {
+      const { getApiKeyForModel } = await import("./model-auth.js");
+      const { resolveCopilotApiToken } = await import(
+        "../providers/github-copilot-token.js"
+      );
+
+      const agentDir = await fs.mkdtemp(
+        path.join(os.tmpdir(), "clawdbot-agent-"),
+      );
+      const workspaceDir = await fs.mkdtemp(
+        path.join(os.tmpdir(), "clawdbot-workspace-"),
+      );
+      const sessionFile = path.join(workspaceDir, "session.jsonl");
+
+      const cfg = {
+        models: {
+          providers: {
+            "github-copilot": {
+              baseUrl: "https://copilot.example.com",
+              api: "openai-responses",
+              apiKey: "gh-test",
+              models: [
+                {
+                  id: "mock-1",
+                  name: "Mock 1",
+                  reasoning: false,
+                  input: ["text"],
+                  cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0 },
+                  contextWindow: 16_000,
+                  maxTokens: 2048,
+                },
+              ],
+            },
+          },
+        },
+      } satisfies ClawdbotConfig;
+
+      await ensureModels(cfg, agentDir);
+
+      vi.mocked(getApiKeyForModel).mockResolvedValue({
+        apiKey: "gh-test",
+        source: "env",
+      });
+      vi.mocked(resolveCopilotApiToken).mockResolvedValue({
+        token: "copilot-token",
+        baseUrl: "https://copilot.example.com",
+      });
+
+      await runEmbeddedPiAgent({
+        sessionId: "session:test",
+        sessionKey: "agent:main:main",
+        sessionFile,
+        workspaceDir,
+        config: cfg,
+        prompt: "hello",
+        provider: "github-copilot",
+        model: "mock-1",
+        timeoutMs: 1_000,
+        agentDir,
+      });
+
+      expect(resolveCopilotApiToken).toHaveBeenCalledWith({
+        githubToken: "gh-test",
+      });
+    },
+  );
+
   it("writes models.json into the provided agentDir", async () => {
     const agentDir = await fs.mkdtemp(
       path.join(os.tmpdir(), "clawdbot-agent-"),
@@ -973,7 +1076,6 @@ describe("runEmbeddedPiAgent", () => {
     expect(secondUserIndex).toBeGreaterThan(firstAssistantIndex);
     expect(secondAssistantIndex).toBeGreaterThan(secondUserIndex);
   });
-||||||| parent of 3da1afed6 (feat: add GitHub Copilot provider)
 
   it("persists the first user message before assistant output", async () => {
     const agentDir = await fs.mkdtemp(

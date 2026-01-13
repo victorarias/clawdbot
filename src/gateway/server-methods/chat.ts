@@ -309,7 +309,8 @@ export const chatHandlers: GatewayRequestHandlers = {
       });
 
       if (store) {
-        store[canonicalKey] = sessionEntry;
+        const storeKey = canonicalKey ?? p.sessionKey;
+        store[storeKey] = sessionEntry;
         if (storePath) {
           await saveSessionStore(storePath, store);
         }

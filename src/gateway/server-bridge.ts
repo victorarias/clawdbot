@@ -945,7 +945,8 @@ export function createBridgeHandlers(ctx: BridgeHandlersContext) {
             });
 
             if (store) {
-              store[canonicalKey] = sessionEntry;
+              const storeKey = canonicalKey ?? p.sessionKey;
+              store[storeKey] = sessionEntry;
               if (storePath) {
                 await saveSessionStore(storePath, store);
               }
@@ -1066,7 +1067,8 @@ export function createBridgeHandlers(ctx: BridgeHandlersContext) {
           loadSessionEntry(sessionKey);
         const now = Date.now();
         const sessionId = entry?.sessionId ?? randomUUID();
-        store[canonicalKey] = {
+        const storeKey = canonicalKey ?? sessionKey;
+        store[storeKey] = {
           sessionId,
           updatedAt: now,
           thinkingLevel: entry?.thinkingLevel,
@@ -1144,7 +1146,8 @@ export function createBridgeHandlers(ctx: BridgeHandlersContext) {
           loadSessionEntry(sessionKey);
         const now = Date.now();
         const sessionId = entry?.sessionId ?? randomUUID();
-        store[canonicalKey] = {
+        const storeKey = canonicalKey ?? sessionKey;
+        store[storeKey] = {
           sessionId,
           updatedAt: now,
           thinkingLevel: entry?.thinkingLevel,

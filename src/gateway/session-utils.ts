@@ -14,14 +14,13 @@ import { resolveStateDir } from "../config/paths.js";
 import {
   buildGroupDisplayName,
   loadSessionStore,
-  resolveAgentIdFromSessionKey,
-  resolveAgentMainSessionKey,
   resolveSessionTranscriptPath,
   resolveStorePath,
   type SessionEntry,
   type SessionScope,
 } from "../config/sessions.js";
 import {
+  DEFAULT_AGENT_ID,
   normalizeAgentId,
   normalizeMainKey,
   parseAgentSessionKey,
@@ -167,23 +166,14 @@ export function capArrayByJsonBytes<T>(
 
 export function loadSessionEntry(sessionKey: string) {
   const cfg = loadConfig();
-  const sessionCfg = cfg.session;
-  const agentId = resolveAgentIdFromSessionKey(sessionKey);
-  const storePath = resolveStorePath(sessionCfg?.store, { agentId });
+  const { storePath, storeKeys, canonicalKey } =
+    resolveGatewaySessionStoreTarget({
+      cfg,
+      key: sessionKey,
+    });
   const store = loadSessionStore(storePath);
-  const parsed = parseAgentSessionKey(sessionKey);
-  const legacyKey = parsed?.rest;
-  // Also try the canonical key if sessionKey is the short mainKey alias
-  const rawMainKey = normalizeMainKey(sessionCfg?.mainKey);
-  const canonicalKey =
-    sessionKey === rawMainKey
-      ? resolveAgentMainSessionKey({ cfg, agentId })
-      : undefined;
-  const entry =
-    store[sessionKey] ??
-    (legacyKey ? store[legacyKey] : undefined) ??
-    (canonicalKey ? store[canonicalKey] : undefined);
-  return { cfg, storePath, store, entry };
+  const entry = storeKeys.map((key) => store[key]).find(Boolean);
+  return { cfg, storePath, store, entry, canonicalKey };
 }
 
 export function classifySessionKey(
@@ -250,6 +240,7 @@ function listConfiguredAgentIds(cfg: ClawdbotConfig): string[] {
     }
     const defaultId = normalizeAgentId(resolveDefaultAgentId(cfg));
     ids.add(defaultId);
+    ids.add(normalizeAgentId(DEFAULT_AGENT_ID));
     const sorted = Array.from(ids).filter(Boolean);
     sorted.sort((a, b) => a.localeCompare(b));
     return sorted.includes(defaultId)
@@ -260,6 +251,7 @@ function listConfiguredAgentIds(cfg: ClawdbotConfig): string[] {
   const ids = new Set<string>();
   const defaultId = normalizeAgentId(resolveDefaultAgentId(cfg));
   ids.add(defaultId);
+  ids.add(normalizeAgentId(DEFAULT_AGENT_ID));
   for (const id of listExistingAgentIdsFromDisk()) ids.add(id);
   const sorted = Array.from(ids).filter(Boolean);
   sorted.sort((a, b) => a.localeCompare(b));
@@ -325,24 +317,54 @@ export function resolveGatewaySessionStoreTarget(params: {
   storeKeys: string[];
 } {
   const key = params.key.trim();
-  const agentId = resolveAgentIdFromSessionKey(key);
-  const storeConfig = params.cfg.session?.store;
-  const storePath = resolveStorePath(storeConfig, { agentId });
+  const cfg = params.cfg;
+  const storeConfig = cfg.session?.store;
+  const mainKey = normalizeMainKey(cfg.session?.mainKey);
+  const scope = cfg.session?.scope ?? "per-sender";
+  const defaultAgentId = normalizeAgentId(resolveDefaultAgentId(cfg));
+  const isMainAlias = key === "main" || key === mainKey;
+  const storePathForAgent = (agentId: string) =>
+    resolveStorePath(storeConfig, { agentId });
 
   if (key === "global" || key === "unknown") {
-    return { agentId, storePath, canonicalKey: key, storeKeys: [key] };
+    return {
+      agentId: defaultAgentId,
+      storePath: storePathForAgent(defaultAgentId),
+      canonicalKey: key,
+      storeKeys: [key],
+    };
+  }
+
+  if (scope === "global" && isMainAlias) {
+    return {
+      agentId: defaultAgentId,
+      storePath: storePathForAgent(defaultAgentId),
+      canonicalKey: "global",
+      storeKeys: ["global", key],
+    };
   }
 
   const parsed = parseAgentSessionKey(key);
   if (parsed) {
+    const agentId = normalizeAgentId(parsed.agentId);
+    const storePath = storePathForAgent(agentId);
+    const restKey = parsed.rest;
+    const isRestMain = restKey === "main" || restKey === mainKey;
+    if (isRestMain) {
+      const canonical = `agent:${agentId}:${mainKey}`;
+      const storeKeys = Array.from(new Set([canonical, key, restKey]));
+      return { agentId, storePath, canonicalKey: canonical, storeKeys };
+    }
     return {
       agentId,
       storePath,
       canonicalKey: key,
-      storeKeys: [key, parsed.rest],
+      storeKeys: [key, restKey],
     };
   }
 
+  const agentId = defaultAgentId;
+  const storePath = storePathForAgent(agentId);
   if (key.startsWith("subagent:")) {
     const canonical = canonicalizeSessionKeyForAgent(agentId, key);
     return {
@@ -353,13 +375,30 @@ export function resolveGatewaySessionStoreTarget(params: {
     };
   }
 
-  const canonical = canonicalizeSessionKeyForAgent(agentId, key);
-  return {
+  const canonical = canonicalizeSessionKeyForAgent(
     agentId,
-    storePath,
-    canonicalKey: canonical,
-    storeKeys: [canonical, key],
-  };
+    isMainAlias ? mainKey : key,
+  );
+  if (!isMainAlias) {
+    return {
+      agentId,
+      storePath,
+      canonicalKey: canonical,
+      storeKeys: [canonical, key],
+    };
+  }
+  const storeKeys = Array.from(new Set([canonical, key, mainKey]));
+  return { agentId, storePath, canonicalKey: canonical, storeKeys };
+}
+
+export function resolveSessionStoreKey(params: {
+  cfg: ClawdbotConfig;
+  sessionKey: string;
+}): string {
+  return resolveGatewaySessionStoreTarget({
+    cfg: params.cfg,
+    key: params.sessionKey,
+  }).canonicalKey;
 }
 
 export function loadCombinedSessionStoreForGateway(cfg: ClawdbotConfig): {

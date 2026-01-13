@@ -188,7 +188,7 @@ export const agentHandlers: GatewayRequestHandlers = {
         return;
       }
       resolvedSessionId = sessionId;
-      const canonicalSessionKey = canonicalKey;
+      const canonicalSessionKey = canonicalKey ?? requestedSessionKey;
       const agentId = resolveAgentIdFromSessionKey(canonicalSessionKey);
       const mainSessionKey = resolveAgentMainSessionKey({ cfg, agentId });
       if (store) {

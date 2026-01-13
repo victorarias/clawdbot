@@ -21,10 +21,6 @@ import {
   runEmbeddedPiAgent,
 } from "../../agents/pi-embedded.js";
 import {
-  queueEmbeddedPiMessage,
-  runEmbeddedPiAgent,
-} from "../../agents/pi-embedded.js";
-import {
   isCompactionFailureError,
   isContextOverflowError,
 } from "../../agents/pi-embedded-helpers.js";

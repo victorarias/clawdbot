@@ -3,8 +3,8 @@ import { resolveClawdbotAgentDir } from "../agents/agent-paths.js";
 import { upsertAuthProfile } from "../agents/auth-profiles.js";
 import { OPENCODE_ZEN_DEFAULT_MODEL_REF } from "../agents/opencode-zen-models.js";
 import {
-  buildSyntheticModelDefinition,
   SYNTHETIC_BASE_URL,
+  SYNTHETIC_DEFAULT_COST,
   SYNTHETIC_DEFAULT_MODEL_ID,
   SYNTHETIC_DEFAULT_MODEL_REF,
   SYNTHETIC_MODEL_CATALOG,
@@ -200,45 +200,6 @@ export async function setSyntheticApiKey(key: string, agentDir?: string) {
       key,
     },
     agentDir: resolveAuthAgentDir(agentDir),
-  });
-}
-
-export async function setMoonshotApiKey(key: string, agentDir?: string) {
-  // Write to resolved agent dir so gateway finds credentials on startup.
-  upsertAuthProfile({
-    profileId: "moonshot:default",
-    credential: {
-      type: "api_key",
-      provider: "moonshot",
-      key,
-    },
-    agentDir: resolveAuthAgentDir(agentDir),
-  });
-}
-
-export async function setSyntheticApiKey(key: string, agentDir?: string) {
-  // Write to resolved agent dir so gateway finds credentials on startup.
-  upsertAuthProfile({
-    profileId: "synthetic:default",
-    credential: {
-      type: "api_key",
-      provider: "synthetic",
-      key,
-    },
-    agentDir: resolveAuthAgentDir(agentDir),
-  });
-}
-
-export async function setSyntheticApiKey(key: string, agentDir?: string) {
-  // Write to the multi-agent path so gateway finds credentials on startup
-  upsertAuthProfile({
-    profileId: "synthetic:default",
-    credential: {
-      type: "api_key",
-      provider: "synthetic",
-      key,
-    },
-    agentDir: agentDir ?? resolveDefaultAgentDir(),
   });
 }
 
