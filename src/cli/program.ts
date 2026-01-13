@@ -5,6 +5,7 @@ import {
   agentsDeleteCommand,
   agentsListCommand,
 } from "../commands/agents.js";
+import { AUTH_CHOICE_CLI_VALUES } from "../commands/auth-choice-options.js";
 import {
   CONFIGURE_WIZARD_SECTIONS,
   configureCommand,
@@ -76,6 +77,7 @@ export function buildProgram() {
   const providerOptions = listProviderPlugins().map((plugin) => plugin.id);
   const messageProviderOptions = providerOptions.join("|");
   const agentProviderOptions = ["last", ...providerOptions].join("|");
+  const authChoiceOptions = AUTH_CHOICE_CLI_VALUES.join("|");
 
   program
     .name("clawdbot")
@@ -262,10 +264,7 @@ export function buildProgram() {
     .option("--non-interactive", "Run without prompts", false)
     .option("--flow <flow>", "Wizard flow: quickstart|advanced")
     .option("--mode <mode>", "Wizard mode: local|remote")
-    .option(
-      "--auth-choice <choice>",
-      "Auth: setup-token|claude-cli|claude-sdk|token|chutes|openai-codex|openai-api-key|openrouter-api-key|moonshot-api-key|synthetic-api-key|codex-cli|antigravity|gemini-api-key|zai-api-key|apiKey|minimax-cloud|minimax-api|minimax-api-lightning|minimax|opencode-zen|github-copilot|skip",
-    )
+    .option("--auth-choice <choice>", `Auth: ${authChoiceOptions}`)
     .option(
       "--token-provider <id>",
       "Token provider id (non-interactive; used with --auth-choice token)",

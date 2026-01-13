@@ -30,6 +30,31 @@ export type AuthChoiceGroup = {
   options: AuthChoiceOption[];
 };
 
+export const AUTH_CHOICE_CLI_VALUES: AuthChoice[] = [
+  "setup-token",
+  "claude-cli",
+  "claude-sdk",
+  "token",
+  "chutes",
+  "openai-codex",
+  "openai-api-key",
+  "openrouter-api-key",
+  "moonshot-api-key",
+  "synthetic-api-key",
+  "codex-cli",
+  "antigravity",
+  "gemini-api-key",
+  "zai-api-key",
+  "apiKey",
+  "minimax-cloud",
+  "minimax-api",
+  "minimax-api-lightning",
+  "minimax",
+  "opencode-zen",
+  "github-copilot",
+  "skip",
+];
+
 const AUTH_CHOICE_GROUP_DEFS: {
   value: AuthChoiceGroupId;
   label: string;
