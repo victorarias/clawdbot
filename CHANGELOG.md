@@ -5,15 +5,28 @@
 ### Changes
 - Models/Moonshot: add Kimi K2 0905 + turbo/thinking variants to the preset + docs. (#818 — thanks @mickahouan)
 - Memory: allow custom OpenAI-compatible embedding endpoints for memory search (remote baseUrl/apiKey/headers). (#819 — thanks @mukhtharcm)
+- Auth: add Chutes OAuth (PKCE + refresh + onboarding choice). (#726 — thanks @FrieSei)
+- Agents: make workspace bootstrap truncation configurable (default 20k) and warn when files are truncated.
 
 ### Fixes
+- Typing: keep typing indicators alive during tool execution. (#450, #447 — thanks @thewilloftheshadow)
+- Cron: coerce enabled patches so disabling jobs persists correctly. (#205 — thanks @thewilloftheshadow)
+- Control UI: keep chat scroll position unless user is near the bottom. (#217 — thanks @thewilloftheshadow)
+- Fallback: treat credential validation failures ("no credentials found", "no API key found") as auth errors that trigger model fallback. (#822 — thanks @sebslight)
+- Telegram: preserve forum topic thread ids, including General topic replies. (#727 — thanks @thewilloftheshadow)
+- Telegram: persist polling update offsets across restarts to avoid duplicate updates. (#739 — thanks @thewilloftheshadow)
+- Discord: avoid duplicate message/reaction listeners on monitor reloads. (#744 — thanks @thewilloftheshadow)
+- System events: include local timestamps when events are injected into prompts. (#245 — thanks @thewilloftheshadow)
+- Cron: accept `jobId` aliases for cron update/run/remove params in gateway validation. (#252 — thanks @thewilloftheshadow)
 - Models/Google: normalize Gemini 3 model ids to preview variants before runtime selection. (#795 — thanks @thewilloftheshadow)
-- TUI: keep the last streamed response instead of replacing it with “(no output)”. (#747 — thanks @thewilloftheshadow)
+- TUI: keep the last streamed response instead of replacing it with "(no output)". (#747 — thanks @thewilloftheshadow)
 - Slack: accept slash commands with or without leading `/` for custom command configs. (#798 — thanks @thewilloftheshadow)
 - Onboarding/Configure: refuse to proceed with invalid configs; run `clawdbot doctor` first to avoid wiping custom fields. (#764 — thanks @mukhtharcm)
 - Onboarding: quote Windows browser URLs when launching via `cmd start` to preserve OAuth query params. (#794 — thanks @roshanasingh4)
+- Gateway/Auth: allow Tailscale Serve identity headers to satisfy token auth when `allowTailscale` is enabled. (#823 — thanks @roshanasingh4)
 - Anthropic: merge consecutive user turns (preserve newest metadata) before validation to avoid “Incorrect role information” errors. (#804 — thanks @ThomsenDrake)
 - Discord/Slack: centralize reply-thread planning so auto-thread replies stay in the created thread without parent reply refs.
+- Telegram: respect account-scoped bindings when webhook mode is enabled. (#821 — thanks @gumadeiras)
 - Update: run `clawdbot doctor --non-interactive` during updates to avoid TTY hangs. (#781 — thanks @ronyrus)
 - Browser tools: treat explicit `maxChars: 0` as unlimited while keeping the default limit only when omitted. (#796 — thanks @gabriel-trigo)
 - Tools: allow Claude/Gemini tool param aliases (`file_path`, `old_string`, `new_string`) while enforcing required params at runtime. (#793 — thanks @hsrvc)
@@ -22,6 +35,7 @@
 - Auto-reply: re-evaluate reasoning tag enforcement on fallback providers to prevent leaked reasoning. (#810 — thanks @mcinteerj)
 - Tools/Gemini: drop null-only union variants while cleaning tool schemas to avoid Cloud Code Assist schema errors. (#782 — thanks @AbhisekBasu1)
 - Connections UI: polish multi-account account cards in the Connections view. (#816 — thanks @steipete)
+- Gemini: strip Claude `msg_*` thought_signature fields from session history to avoid base64 decode errors. (#805 — thanks @marcmarg)
 
 ## 2026.1.12-3
 
@@ -68,6 +82,7 @@
 - CLI/Onboarding: `clawdbot dashboard` prints/copies the tokenized Control UI link and opens it; onboarding now auto-opens the dashboard with your token and keeps the link in the summary.
 - Commands: native slash commands now default to `"auto"` (on for Discord/Telegram, off for Slack) with per-provider overrides (`discord/telegram/slack.commands.native`) and docs updated.
 - Sandbox: allow Docker bind mounts via `docker.binds`; merges global + per-agent binds (per-agent ignored under shared scope) for custom host paths. (#790 — thanks @akonyer)
+- Models: add Synthetic provider (Anthropic-compatible) and trim legacy MiniMax M2 from default catalogs. (#811 — thanks @siraht)
 
 ### Fixes
 - Auto-reply: inline `/status` now honors allowlists (authorized stripped + replied inline; unauthorized leaves text for the agent) to match command gating tests.
