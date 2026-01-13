@@ -1,5 +1,6 @@
 import type { ClawdbotConfig } from "../config/config.js";
 import type { ModelCatalogEntry } from "./model-catalog.js";
+import { normalizeGoogleModelId } from "./models-config.providers.js";
 
 export type ModelRef = {
   provider: string;
@@ -54,6 +55,14 @@ function normalizeClaudeModelId(model: string): string {
   return trimmed;
 }
 
+function normalizeProviderModelId(provider: string, model: string): string {
+  if (provider === "anthropic" || provider === "claude-sdk") {
+    return normalizeClaudeModelId(model);
+  }
+  if (provider === "google") return normalizeGoogleModelId(model);
+  return model;
+}
+
 export function parseModelRef(
   raw: string,
   defaultProvider: string,
@@ -63,20 +72,14 @@ export function parseModelRef(
   const slash = trimmed.indexOf("/");
   if (slash === -1) {
     const provider = normalizeProviderId(defaultProvider);
-    const model =
-      provider === "anthropic" || provider === "claude-sdk"
-        ? normalizeClaudeModelId(trimmed)
-        : trimmed;
+    const model = normalizeProviderModelId(provider, trimmed);
     return { provider, model };
   }
   const providerRaw = trimmed.slice(0, slash).trim();
   const provider = normalizeProviderId(providerRaw);
   const model = trimmed.slice(slash + 1).trim();
   if (!provider || !model) return null;
-  const normalizedModel =
-    provider === "anthropic" || provider === "claude-sdk"
-      ? normalizeClaudeModelId(model)
-      : model;
+  const normalizedModel = normalizeProviderModelId(provider, model);
   return { provider, model: normalizedModel };
 }
 
