@@ -7,9 +7,9 @@ import {
 } from "@anthropic-ai/claude-agent-sdk";
 import type { AgentTool } from "@mariozechner/pi-agent-core";
 import {
-  getProviderPlugin,
-  normalizeProviderId,
-} from "../providers/plugins/index.js";
+  getChannelPlugin,
+  normalizeChannelId,
+} from "../channels/plugins/index.js";
 import { buildZodShapeFromJsonSchema } from "./claude-sdk-schema.js";
 import {
   isMessagingTool,
@@ -42,15 +42,15 @@ function extractMessagingToolSend(
     if (!toRaw) return undefined;
     const providerRaw =
       typeof args.provider === "string" ? args.provider.trim() : "";
-    const providerId = providerRaw ? normalizeProviderId(providerRaw) : null;
+    const providerId = providerRaw ? normalizeChannelId(providerRaw) : null;
     const provider =
       providerId ?? (providerRaw ? providerRaw.toLowerCase() : "message");
     const to = normalizeTargetForProvider(provider, toRaw);
     return to ? { tool: toolName, provider, accountId, to } : undefined;
   }
-  const providerId = normalizeProviderId(toolName);
+  const providerId = normalizeChannelId(toolName);
   if (!providerId) return undefined;
-  const plugin = getProviderPlugin(providerId);
+  const plugin = getChannelPlugin(providerId);
   const extracted = plugin?.actions?.extractToolSend?.({ args });
   if (!extracted?.to) return undefined;
   const to = normalizeTargetForProvider(providerId, extracted.to);

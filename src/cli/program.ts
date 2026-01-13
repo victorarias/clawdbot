@@ -76,6 +76,7 @@ export function buildProgram() {
   const channelOptions = listChannelPlugins().map((plugin) => plugin.id);
   const messageChannelOptions = channelOptions.join("|");
   const agentChannelOptions = ["last", ...channelOptions].join("|");
+  const authChoiceOptions = AUTH_CHOICE_CLI_VALUES.join("|");
 
   program
     .name("clawdbot")

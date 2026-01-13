@@ -21,7 +21,6 @@ import {
   readCodexCliCredentialsCached,
   writeClaudeCliCredentials,
 } from "./cli-credentials.js";
-import { refreshChutesTokens, type ChutesStoredOAuth } from "./chutes-oauth.js";
 import { normalizeProviderId } from "./model-selection.js";
 
 const AUTH_STORE_VERSION = 1;

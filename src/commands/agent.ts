@@ -537,7 +537,7 @@ export async function agentCommand(
             sessionId,
             sdkSessionId,
             sessionKey,
-            messageProvider,
+            messageProvider: messageChannel,
             sessionFile,
             workspaceDir,
             agentDir,

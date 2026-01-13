@@ -16,10 +16,6 @@ vi.mock("../providers/github-copilot-auth.js", () => ({
   githubCopilotLoginCommand: vi.fn(async () => {}),
 }));
 
-vi.mock("../providers/github-copilot-auth.js", () => ({
-  githubCopilotLoginCommand: vi.fn(async () => {}),
-}));
-
 const noopAsync = async () => {};
 const noop = () => {};
 const authProfilePathFor = (agentDir: string) =>
@@ -274,13 +270,7 @@ describe("applyAuthChoice", () => {
       mode: "api_key",
     });
 
-    const authProfilePath = path.join(
-      tempStateDir,
-      "agents",
-      "main",
-      "agent",
-      "auth-profiles.json",
-    );
+    const authProfilePath = authProfilePathFor(requireAgentDir());
     const raw = await fs.readFile(authProfilePath, "utf8");
     const parsed = JSON.parse(raw) as {
       profiles?: Record<string, { key?: string }>;
@@ -333,9 +323,11 @@ describe("applyAuthChoice", () => {
       mode: "api_key",
     });
 
-    const authProfilePath = authProfilePathFor(
-      process.env.CLAWDBOT_AGENT_DIR!,
-    );
+    const agentDir = process.env.CLAWDBOT_AGENT_DIR;
+    if (!agentDir) {
+      throw new Error("CLAWDBOT_AGENT_DIR not set");
+    }
+    const authProfilePath = authProfilePathFor(agentDir);
     const raw = await fs.readFile(authProfilePath, "utf8");
     const parsed = JSON.parse(raw) as {
       profiles?: Record<string, { key?: string }>;
