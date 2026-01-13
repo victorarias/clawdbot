@@ -105,6 +105,22 @@ function buildMoonshotModelDefinition(): ModelDefinitionConfig {
   };
 }
 
+type SyntheticCatalogEntry = (typeof SYNTHETIC_MODEL_CATALOG)[number];
+
+function buildSyntheticModelDefinition(
+  entry: SyntheticCatalogEntry,
+): ModelDefinitionConfig {
+  return {
+    id: entry.id,
+    name: entry.name,
+    reasoning: entry.reasoning,
+    input: [...entry.input],
+    cost: SYNTHETIC_DEFAULT_COST,
+    contextWindow: entry.contextWindow,
+    maxTokens: entry.maxTokens,
+  };
+}
+
 export async function writeOAuthCredentials(
   provider: string,
   creds: OAuthCredentials,
@@ -194,6 +210,19 @@ export async function setMoonshotApiKey(key: string, agentDir?: string) {
     credential: {
       type: "api_key",
       provider: "moonshot",
+      key,
+    },
+    agentDir: agentDir ?? resolveDefaultAgentDir(),
+  });
+}
+
+export async function setSyntheticApiKey(key: string, agentDir?: string) {
+  // Write to the multi-agent path so gateway finds credentials on startup
+  upsertAuthProfile({
+    profileId: "synthetic:default",
+    credential: {
+      type: "api_key",
+      provider: "synthetic",
       key,
     },
     agentDir: agentDir ?? resolveDefaultAgentDir(),

@@ -1215,6 +1215,28 @@ export async function applyAuthChoice(params: {
       nextConfig = applied.config;
       agentModelOverride = applied.agentModelOverride ?? agentModelOverride;
     }
+  } else if (params.authChoice === "synthetic-api-key") {
+    const key = await params.prompter.text({
+      message: "Enter Synthetic API key",
+      validate: (value) => (value?.trim() ? undefined : "Required"),
+    });
+    await setSyntheticApiKey(String(key).trim(), params.agentDir);
+    nextConfig = applyAuthProfileConfig(nextConfig, {
+      profileId: "synthetic:default",
+      provider: "synthetic",
+      mode: "api_key",
+    });
+    if (params.setDefaultModel) {
+      nextConfig = applySyntheticConfig(nextConfig);
+      await params.prompter.note(
+        `Default model set to ${SYNTHETIC_DEFAULT_MODEL_REF}`,
+        "Model configured",
+      );
+    } else {
+      nextConfig = applySyntheticProviderConfig(nextConfig);
+      agentModelOverride = SYNTHETIC_DEFAULT_MODEL_REF;
+      await noteAgentModel(SYNTHETIC_DEFAULT_MODEL_REF);
+    }
   } else if (params.authChoice === "apiKey") {
     const key = await params.prompter.text({
       message: "Enter Anthropic API key",
