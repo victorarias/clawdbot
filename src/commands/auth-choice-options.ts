@@ -90,6 +90,12 @@ const AUTH_CHOICE_GROUP_DEFS: {
     choices: ["synthetic-api-key"],
   },
   {
+    value: "synthetic",
+    label: "Synthetic",
+    hint: "Anthropic-compatible (multi-model)",
+    choices: ["synthetic-api-key"],
+  },
+  {
     value: "google",
     label: "Google",
     hint: "Antigravity + Gemini API key",

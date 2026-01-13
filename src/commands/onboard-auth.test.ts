@@ -9,6 +9,8 @@ import {
   applyAuthProfileConfig,
   applyMinimaxApiConfig,
   applyMinimaxApiProviderConfig,
+  applySyntheticConfig,
+  applySyntheticProviderConfig,
   applyOpencodeZenConfig,
   applyOpencodeZenProviderConfig,
   applyOpenrouterConfig,
