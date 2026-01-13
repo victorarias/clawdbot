@@ -2,16 +2,25 @@
 
 ## 2026.1.12-4
 
+### Changes
+- Models/Moonshot: add Kimi K2 0905 + turbo/thinking variants to the preset + docs. (#818 — thanks @mickahouan)
+- Memory: allow custom OpenAI-compatible embedding endpoints for memory search (remote baseUrl/apiKey/headers). (#819 — thanks @mukhtharcm)
+
 ### Fixes
+- Models/Google: normalize Gemini 3 model ids to preview variants before runtime selection. (#795 — thanks @thewilloftheshadow)
+- TUI: keep the last streamed response instead of replacing it with “(no output)”. (#747 — thanks @thewilloftheshadow)
+- Slack: accept slash commands with or without leading `/` for custom command configs. (#798 — thanks @thewilloftheshadow)
 - Onboarding/Configure: refuse to proceed with invalid configs; run `clawdbot doctor` first to avoid wiping custom fields. (#764 — thanks @mukhtharcm)
 - Anthropic: merge consecutive user turns (preserve newest metadata) before validation to avoid “Incorrect role information” errors. (#804 — thanks @ThomsenDrake)
 - Discord/Slack: centralize reply-thread planning so auto-thread replies stay in the created thread without parent reply refs.
 - Update: run `clawdbot doctor --non-interactive` during updates to avoid TTY hangs. (#781 — thanks @ronyrus)
+- Browser tools: treat explicit `maxChars: 0` as unlimited while keeping the default limit only when omitted. (#796 — thanks @gabriel-trigo)
 - Tools: allow Claude/Gemini tool param aliases (`file_path`, `old_string`, `new_string`) while enforcing required params at runtime. (#793 — thanks @hsrvc)
 - Gemini: downgrade tool-call history missing `thought_signature` to avoid INVALID_ARGUMENT errors. (#793 — thanks @hsrvc)
 - Messaging: enforce context isolation for message tool sends across providers (normalized targets + tests). (#793 — thanks @hsrvc)
 - Auto-reply: re-evaluate reasoning tag enforcement on fallback providers to prevent leaked reasoning. (#810 — thanks @mcinteerj)
 - Tools/Gemini: drop null-only union variants while cleaning tool schemas to avoid Cloud Code Assist schema errors. (#782 — thanks @AbhisekBasu1)
+- Connections UI: polish multi-account account cards in the Connections view. (#816 — thanks @steipete)
 
 ## 2026.1.12-3
 
@@ -144,6 +153,7 @@
 - Auto-reply: align `/think` default display with model reasoning defaults. (#751) — thanks @gabriel-trigo.
 - Auto-reply: flush block reply buffers on tool boundaries. (#750) — thanks @sebslight.
 - Auto-reply: allow sender fallback for command authorization when `SenderId` is empty (WhatsApp self-chat). (#755) — thanks @juanpablodlc.
+- Auto-reply: treat whitespace-only sender ids as missing for command authorization (WhatsApp self-chat). (#766) — thanks @steipete.
 - Heartbeat: refresh prompt text for updated defaults.
 - Agents/Tools: use PowerShell on Windows to capture system utility output. (#748) — thanks @myfunc.
 - Docker: tolerate unset optional env vars in docker-setup.sh under strict mode. (#725) — thanks @petradonka.

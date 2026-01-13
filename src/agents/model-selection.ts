@@ -68,7 +68,6 @@ function normalizeProviderModelId(provider: string, model: string): string {
   if (provider === "google") return normalizeGoogleModelId(model);
   return model;
 }
-
 export function parseModelRef(
   raw: string,
   defaultProvider: string,
