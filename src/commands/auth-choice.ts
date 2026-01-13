@@ -1016,6 +1016,7 @@ export async function applyAuthChoice(params: {
         prompter: params.prompter,
         runtime: params.runtime,
         spin,
+        openUrl,
         localBrowserMessage: "Complete sign-in in browser…",
       });
 
