@@ -1,5 +1,12 @@
 # Changelog
 
+## 2026.1.13-1
+
+### Changes
+- Cron: accept ISO timestamps for one-shot schedules (UTC) and allow optional delete-after-run; wired into CLI + macOS editor.
+- Gateway: add Tailscale binary discovery, custom bind mode, and probe auth retry for password changes. (#740 — thanks @jeffersonwarrior)
+- Agents: add compaction mode config with optional safeguard summarization for long histories. (#700 — thanks @thewilloftheshadow)
+
 ## 2026.1.12-4
 
 ### Changes
@@ -19,6 +26,7 @@
 - System events: include local timestamps when events are injected into prompts. (#245 — thanks @thewilloftheshadow)
 - Cron: accept `jobId` aliases for cron update/run/remove params in gateway validation. (#252 — thanks @thewilloftheshadow)
 - Models/Google: normalize Gemini 3 model ids to preview variants before runtime selection. (#795 — thanks @thewilloftheshadow)
+- Models/Google: strip Gemini CLI tool call/response ids in patched provider handling. (#783 — thanks @ananth-vardhan-cn)
 - TUI: keep the last streamed response instead of replacing it with "(no output)". (#747 — thanks @thewilloftheshadow)
 - Slack: accept slash commands with or without leading `/` for custom command configs. (#798 — thanks @thewilloftheshadow)
 - Onboarding/Configure: refuse to proceed with invalid configs; run `clawdbot doctor` first to avoid wiping custom fields. (#764 — thanks @mukhtharcm)
