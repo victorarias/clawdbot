@@ -499,6 +499,12 @@ export async function runReplyAgent(params: {
               authProfileId: followupRun.run.authProfileId,
               thinkLevel: followupRun.run.thinkLevel,
               verboseLevel: followupRun.run.verboseLevel,
+              reasoningLevel: followupRun.run.reasoningLevel,
+              bashElevated: followupRun.run.bashElevated,
+              enforceFinalTag: resolveEnforceFinalTag(
+                followupRun.run,
+                provider,
+              ),
               timeoutMs: followupRun.run.timeoutMs,
               runId: flushRunId,
             })
@@ -816,6 +822,12 @@ export async function runReplyAgent(params: {
                 authProfileId: followupRun.run.authProfileId,
                 thinkLevel: followupRun.run.thinkLevel,
                 verboseLevel: followupRun.run.verboseLevel,
+                reasoningLevel: followupRun.run.reasoningLevel,
+                bashElevated: followupRun.run.bashElevated,
+                enforceFinalTag: resolveEnforceFinalTag(
+                  followupRun.run,
+                  provider,
+                ),
                 timeoutMs: followupRun.run.timeoutMs,
                 runId,
                 onPartialReply:

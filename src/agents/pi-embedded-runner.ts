@@ -1062,7 +1062,7 @@ function mapThinkingLevel(level?: ThinkLevel): ThinkingLevel {
   return level;
 }
 
-function resolveExecToolDefaults(
+export function resolveExecToolDefaults(
   config?: ClawdbotConfig,
 ): ExecToolDefaults | undefined {
   const tools = config?.tools;

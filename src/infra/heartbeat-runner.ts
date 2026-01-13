@@ -1,10 +1,12 @@
 import { resolveEffectiveMessagesConfig } from "../agents/identity.js";
+import { resolveModelRefFromString } from "../agents/model-selection.js";
 import {
   DEFAULT_HEARTBEAT_ACK_MAX_CHARS,
   DEFAULT_HEARTBEAT_EVERY,
   resolveHeartbeatPrompt as resolveHeartbeatPromptText,
   stripHeartbeatToken,
 } from "../auto-reply/heartbeat.js";
+import { resolveDefaultModel } from "../auto-reply/reply/directive-handling.js";
 import { getReplyFromConfig } from "../auto-reply/reply.js";
 import type { ReplyPayload } from "../auto-reply/types.js";
 import {
@@ -199,6 +201,31 @@ function normalizeHeartbeatReply(
   return { shouldSkip: false, text: finalText, hasMedia };
 }
 
+function resolveHeartbeatModelInfo(cfg: ClawdbotConfig, sessionKey: string) {
+  const agentId = resolveAgentIdFromSessionKey(sessionKey);
+  const { defaultProvider, defaultModel, aliasIndex } = resolveDefaultModel({
+    cfg,
+    agentId,
+  });
+  const heartbeatRaw = cfg.agents?.defaults?.heartbeat?.model?.trim() ?? "";
+  const heartbeatRef = heartbeatRaw
+    ? resolveModelRefFromString({
+        raw: heartbeatRaw,
+        defaultProvider,
+        aliasIndex,
+      })
+    : null;
+  const provider = heartbeatRef?.ref.provider ?? defaultProvider;
+  const model = heartbeatRef?.ref.model ?? defaultModel;
+  return {
+    agentId,
+    provider,
+    model,
+    heartbeatModelRaw: heartbeatRaw || undefined,
+    heartbeatModelAlias: heartbeatRef?.alias,
+  };
+}
+
 export async function runHeartbeatOnce(opts: {
   cfg?: ClawdbotConfig;
   reason?: string;
@@ -262,6 +289,17 @@ export async function runHeartbeatOnce(opts: {
         )
       : [];
 
+    // TODO: remove noisy heartbeat debug logging once issue is resolved.
+    log.info("heartbeat: reply captured", {
+      ...resolveHeartbeatModelInfo(cfg, sessionKey),
+      includeReasoning,
+      prompt,
+      sender,
+      delivery,
+      replyPayload,
+      reasoningPayloads,
+    });
+
     if (
       !replyPayload ||
       (!replyPayload.text &&
@@ -291,6 +329,14 @@ export async function runHeartbeatOnce(opts: {
       ackMaxChars,
     );
     const shouldSkipMain = normalized.shouldSkip && !normalized.hasMedia;
+
+    // TODO: remove noisy heartbeat debug logging once issue is resolved.
+    log.info("heartbeat: reply normalized", {
+      ackMaxChars,
+      normalized,
+      shouldSkipMain,
+    });
+
     if (shouldSkipMain && reasoningPayloads.length === 0) {
       await restoreHeartbeatUpdatedAt({
         storePath,

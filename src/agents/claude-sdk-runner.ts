@@ -2,24 +2,51 @@ import os from "node:os";
 
 import { query, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import { resolveHeartbeatPrompt } from "../auto-reply/heartbeat.js";
-import type { ThinkLevel, VerboseLevel } from "../auto-reply/thinking.js";
+import type {
+  ReasoningLevel,
+  ThinkLevel,
+  VerboseLevel,
+} from "../auto-reply/thinking.js";
+import { resolveChannelCapabilities } from "../config/channel-capabilities.js";
 import type { ClawdbotConfig } from "../config/config.js";
+import { getMachineDisplayName } from "../infra/machine-name.js";
+import { createSubsystemLogger } from "../logging.js";
+import { normalizeMessageChannel } from "../utils/message-channel.js";
+import { isReasoningTagProvider } from "../utils/provider-utils.js";
 import { resolveSessionAgentIds } from "./agent-scope.js";
+import type { ExecElevatedDefaults } from "./bash-tools.js";
 import { createClaudeSdkMcpServer } from "./claude-sdk-tools.js";
 import { coerceToFailoverError } from "./failover-error.js";
+import { resolveModelAuthMode } from "./model-auth.js";
 import type { EmbeddedPiRunResult } from "./pi-embedded.js";
 import {
   buildBootstrapContextFiles,
   type EmbeddedContextFile,
+  resolveBootstrapMaxChars,
 } from "./pi-embedded-helpers.js";
+import {
+  buildEmbeddedSandboxInfo,
+  resolveExecToolDefaults,
+} from "./pi-embedded-runner.js";
 import { createClawdbotCodingTools } from "./pi-tools.js";
-import type { SkillSnapshot } from "./skills.js";
+import { resolveSandboxContext } from "./sandbox.js";
+import {
+  applySkillEnvOverrides,
+  applySkillEnvOverridesFromSnapshot,
+  loadWorkspaceSkillEntries,
+  resolveSkillsPromptForRun,
+  type SkillSnapshot,
+} from "./skills.js";
 import { buildAgentSystemPrompt } from "./system-prompt.js";
 import { normalizeUsage } from "./usage.js";
 import {
   filterBootstrapFilesForSession,
   loadWorkspaceBootstrapFiles,
 } from "./workspace.js";
+
+const log = createSubsystemLogger("agent/claude-sdk");
+const FINAL_TAG_RE = /<\s*(\/?)\s*final\s*>/gi;
+const THINK_TAG_RE = /<\s*think\s*>[\s\S]*?<\s*\/\s*think\s*>/gi;
 
 type ImageContent = {
   type: "image";
@@ -112,6 +139,19 @@ function buildSystemPrompt(params: {
   toolSummaries?: Record<string, string>;
   contextFiles?: EmbeddedContextFile[];
   modelDisplay: string;
+  reasoningLevel?: ReasoningLevel;
+  reasoningTagHint: boolean;
+  skillsPrompt?: string;
+  sandboxInfo?: ReturnType<typeof buildEmbeddedSandboxInfo>;
+  runtimeInfo?: {
+    host: string;
+    os: string;
+    arch: string;
+    node: string;
+    model: string;
+    channel?: string;
+    capabilities?: string[];
+  };
 }) {
   const userTimezone = resolveUserTimezone(
     params.config?.agents?.defaults?.userTimezone,
@@ -120,17 +160,24 @@ function buildSystemPrompt(params: {
   return buildAgentSystemPrompt({
     workspaceDir: params.workspaceDir,
     defaultThinkLevel: params.defaultThinkLevel,
+    reasoningLevel: params.reasoningLevel,
     extraSystemPrompt: params.extraSystemPrompt,
     ownerNumbers: params.ownerNumbers,
-    reasoningTagHint: false,
+    reasoningTagHint: params.reasoningTagHint,
     heartbeatPrompt: params.heartbeatPrompt,
-    runtimeInfo: {
-      host: "clawdbot",
-      os: `${os.type()} ${os.release()}`,
-      arch: os.arch(),
-      node: process.version,
-      model: params.modelDisplay,
-    },
+    skillsPrompt: params.skillsPrompt,
+    runtimeInfo:
+      params.runtimeInfo ??
+      ({
+        host: "clawdbot",
+        os: `${os.type()} ${os.release()}`,
+        arch: os.arch(),
+        node: process.version,
+        model: params.modelDisplay,
+      } satisfies NonNullable<
+        Parameters<typeof buildAgentSystemPrompt>[0]["runtimeInfo"]
+      >),
+    sandboxInfo: params.sandboxInfo,
     toolNames: params.tools.map((tool) => tool.name),
     toolSummaries: params.toolSummaries,
     modelAliasLines: buildModelAliasLines(params.config),
@@ -172,6 +219,39 @@ function normalizeClaudeSdkModel(modelId: string): string {
     return "claude-haiku-3-5";
   }
   return trimmed;
+}
+
+function stripFinalTags(text: string): string {
+  FINAL_TAG_RE.lastIndex = 0;
+  return text.replace(FINAL_TAG_RE, "");
+}
+
+function filterFinalTags(text: string, enforceFinalTag?: boolean): string {
+  const withoutThinking = text.replace(THINK_TAG_RE, "");
+  if (!enforceFinalTag) {
+    return stripFinalTags(withoutThinking).trim();
+  }
+  let result = "";
+  FINAL_TAG_RE.lastIndex = 0;
+  let lastFinalIndex = 0;
+  let inFinal = false;
+  let sawFinal = false;
+  for (const match of withoutThinking.matchAll(FINAL_TAG_RE)) {
+    const idx = match.index ?? 0;
+    const isClose = match[1] === "/";
+    if (!inFinal && !isClose) {
+      inFinal = true;
+      sawFinal = true;
+      lastFinalIndex = idx + match[0].length;
+    } else if (inFinal && isClose) {
+      result += withoutThinking.slice(lastFinalIndex, idx);
+      inFinal = false;
+      lastFinalIndex = idx + match[0].length;
+    }
+  }
+  if (inFinal) result += withoutThinking.slice(lastFinalIndex);
+  if (!sawFinal) return "";
+  return stripFinalTags(result).trim();
 }
 
 function extractAssistantText(message: SdkAssistantMessage): string {
@@ -240,6 +320,9 @@ export async function runClaudeSdkAgent(params: {
   authProfileId?: string;
   thinkLevel?: ThinkLevel;
   verboseLevel?: VerboseLevel;
+  reasoningLevel?: ReasoningLevel;
+  bashElevated?: ExecElevatedDefaults;
+  enforceFinalTag?: boolean;
   timeoutMs: number;
   runId: string;
   images?: ImageContent[];
@@ -266,19 +349,59 @@ export async function runClaudeSdkAgent(params: {
     { once: true },
   );
 
+  let restoreSkillEnv: (() => void) | undefined;
   try {
     const provider = params.provider ?? "claude-sdk";
     const modelId = normalizeClaudeSdkModel(params.model ?? "claude-opus-4-5");
     const modelDisplay = `${provider}/${modelId}`;
+    const sandboxSessionKey = params.sessionKey?.trim() || params.sessionId;
+    const sandbox = await resolveSandboxContext({
+      config: params.config,
+      sessionKey: sandboxSessionKey,
+      workspaceDir: params.workspaceDir,
+    });
+    const effectiveWorkspace = sandbox?.enabled
+      ? sandbox.workspaceAccess === "rw"
+        ? params.workspaceDir
+        : sandbox.workspaceDir
+      : params.workspaceDir;
+    const shouldLoadSkillEntries =
+      !params.skillsSnapshot || !params.skillsSnapshot.resolvedSkills;
+    const skillEntries = shouldLoadSkillEntries
+      ? loadWorkspaceSkillEntries(effectiveWorkspace)
+      : [];
+    restoreSkillEnv = params.skillsSnapshot
+      ? applySkillEnvOverridesFromSnapshot({
+          snapshot: params.skillsSnapshot,
+          config: params.config,
+        })
+      : applySkillEnvOverrides({
+          skills: skillEntries ?? [],
+          config: params.config,
+        });
+    const skillsPrompt = resolveSkillsPromptForRun({
+      skillsSnapshot: params.skillsSnapshot,
+      entries: shouldLoadSkillEntries ? skillEntries : undefined,
+      config: params.config,
+      workspaceDir: effectiveWorkspace,
+    });
+    const execDefaults = resolveExecToolDefaults(params.config);
+    const execWithElevated = params.bashElevated
+      ? { ...execDefaults, elevated: params.bashElevated }
+      : execDefaults;
     const tools = createClawdbotCodingTools({
+      exec: execWithElevated,
       messageProvider: params.messageProvider,
       agentAccountId: params.agentAccountId,
       sessionKey: params.sessionKey,
       agentDir: params.agentDir,
-      workspaceDir: params.workspaceDir,
+      workspaceDir: effectiveWorkspace,
       config: params.config,
       abortSignal: abortController.signal,
+      sandbox,
       modelProvider: provider,
+      modelId,
+      modelAuthMode: resolveModelAuthMode(provider, params.config),
       currentChannelId: params.currentChannelId,
       currentThreadTs: params.currentThreadTs,
       replyToMode: params.replyToMode,
@@ -308,10 +431,14 @@ export async function runClaudeSdkAgent(params: {
     }
 
     const bootstrapFiles = filterBootstrapFilesForSession(
-      await loadWorkspaceBootstrapFiles(params.workspaceDir),
+      await loadWorkspaceBootstrapFiles(effectiveWorkspace),
       params.sessionKey ?? params.sessionId,
     );
-    const contextFiles = buildBootstrapContextFiles(bootstrapFiles);
+    const sessionLabel = params.sessionKey ?? params.sessionId;
+    const contextFiles = buildBootstrapContextFiles(bootstrapFiles, {
+      maxChars: resolveBootstrapMaxChars(params.config),
+      warn: (message) => log.warn(`${message} (sessionKey=${sessionLabel})`),
+    });
     const { defaultAgentId, sessionAgentId } = resolveSessionAgentIds({
       sessionKey: params.sessionKey,
       config: params.config,
@@ -322,13 +449,40 @@ export async function runClaudeSdkAgent(params: {
             params.config?.agents?.defaults?.heartbeat?.prompt,
           )
         : undefined;
+    const runtimeChannel = normalizeMessageChannel(params.messageProvider);
+    const runtimeCapabilities = runtimeChannel
+      ? (resolveChannelCapabilities({
+          cfg: params.config,
+          channel: runtimeChannel,
+          accountId: params.agentAccountId,
+        }) ?? [])
+      : undefined;
+    const runtimeInfo = {
+      host: await getMachineDisplayName(),
+      os: `${os.type()} ${os.release()}`,
+      arch: os.arch(),
+      node: process.version,
+      model: modelDisplay,
+      channel: runtimeChannel ?? undefined,
+      capabilities: runtimeCapabilities,
+    };
+    const sandboxInfo = buildEmbeddedSandboxInfo(
+      sandbox,
+      params.bashElevated ?? execWithElevated?.elevated,
+    );
+    const reasoningTagHint = isReasoningTagProvider(provider);
     const systemPrompt = buildSystemPrompt({
-      workspaceDir: params.workspaceDir,
+      workspaceDir: effectiveWorkspace,
       config: params.config,
       defaultThinkLevel: params.thinkLevel,
+      reasoningLevel: params.reasoningLevel,
       extraSystemPrompt: params.extraSystemPrompt,
       ownerNumbers: params.ownerNumbers,
       heartbeatPrompt,
+      reasoningTagHint,
+      skillsPrompt,
+      sandboxInfo,
+      runtimeInfo,
       tools: allowedTools.map((name) => ({ name })),
       toolSummaries,
       contextFiles,
@@ -369,7 +523,7 @@ export async function runClaudeSdkAgent(params: {
 
     const queryOptions = {
       abortController,
-      cwd: params.workspaceDir,
+      cwd: effectiveWorkspace,
       model: modelId,
       tools: [],
       mcpServers: { "clawdbot-tools": server },
@@ -402,7 +556,13 @@ export async function runClaudeSdkAgent(params: {
         );
         if (delta) {
           assistantText += delta;
-          await params.onPartialReply({ text: assistantText });
+          const filtered = filterFinalTags(
+            assistantText,
+            params.enforceFinalTag,
+          );
+          if (filtered) {
+            await params.onPartialReply({ text: filtered });
+          }
         }
       } else if (message.type === "result") {
         if (message.subtype === "success") {
@@ -419,7 +579,10 @@ export async function runClaudeSdkAgent(params: {
       throw new Error(`claude-sdk failed (${resultError})`);
     }
 
-    const text = resultText ?? assistantText.trim();
+    const rawText = resultText ?? assistantText.trim();
+    const text = rawText
+      ? filterFinalTags(rawText, params.enforceFinalTag)
+      : "";
     const payloads = text ? [{ text }] : [];
 
     return {
@@ -447,6 +610,7 @@ export async function runClaudeSdkAgent(params: {
     if (failover) throw failover;
     throw err;
   } finally {
+    restoreSkillEnv?.();
     clearTimeout(timeout);
   }
 }
