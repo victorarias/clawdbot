@@ -204,7 +204,7 @@ export async function setSyntheticApiKey(key: string, agentDir?: string) {
 }
 
 export async function setMoonshotApiKey(key: string, agentDir?: string) {
-  // Write to the multi-agent path so gateway finds credentials on startup
+  // Write to resolved agent dir so gateway finds credentials on startup.
   upsertAuthProfile({
     profileId: "moonshot:default",
     credential: {
@@ -212,12 +212,12 @@ export async function setMoonshotApiKey(key: string, agentDir?: string) {
       provider: "moonshot",
       key,
     },
-    agentDir: agentDir ?? resolveDefaultAgentDir(),
+    agentDir: resolveAuthAgentDir(agentDir),
   });
 }
 
 export async function setSyntheticApiKey(key: string, agentDir?: string) {
-  // Write to the multi-agent path so gateway finds credentials on startup
+  // Write to resolved agent dir so gateway finds credentials on startup.
   upsertAuthProfile({
     profileId: "synthetic:default",
     credential: {
@@ -225,7 +225,7 @@ export async function setSyntheticApiKey(key: string, agentDir?: string) {
       provider: "synthetic",
       key,
     },
-    agentDir: agentDir ?? resolveDefaultAgentDir(),
+    agentDir: resolveAuthAgentDir(agentDir),
   });
 }
 

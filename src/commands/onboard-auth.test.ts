@@ -16,6 +16,7 @@ import {
   applySyntheticConfig,
   applySyntheticProviderConfig,
   OPENROUTER_DEFAULT_MODEL_REF,
+  setMinimaxApiKey,
   SYNTHETIC_DEFAULT_MODEL_ID,
   SYNTHETIC_DEFAULT_MODEL_REF,
   setMinimaxApiKey,
