@@ -24,6 +24,8 @@ describe("heartbeat prompt clarity", () => {
     });
 
     // The wrong example should show adding commentary
-    expect(prompt).toContain('❌ Wrong: "It\'s 8am, nothing urgent. HEARTBEAT_OK"');
+    expect(prompt).toContain(
+      '❌ Wrong: "It\'s 8am, nothing urgent. HEARTBEAT_OK"',
+    );
   });
 });

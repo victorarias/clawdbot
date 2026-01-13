@@ -416,7 +416,7 @@ export async function runReplyAgent(params: {
           if (isCliProvider(provider, followupRun.run.config)) {
             const startedAt = Date.now();
             emitAgentEvent({
-              runId,
+              runId: flushRunId,
               stream: "lifecycle",
               data: {
                 phase: "start",
@@ -435,14 +435,14 @@ export async function runReplyAgent(params: {
               model,
               thinkLevel: followupRun.run.thinkLevel,
               timeoutMs: followupRun.run.timeoutMs,
-              runId,
+              runId: flushRunId,
               extraSystemPrompt: flushSystemPrompt,
               ownerNumbers: followupRun.run.ownerNumbers,
               cliSessionId,
             })
               .then((result) => {
                 emitAgentEvent({
-                  runId,
+                  runId: flushRunId,
                   stream: "lifecycle",
                   data: {
                     phase: "end",
@@ -454,7 +454,7 @@ export async function runReplyAgent(params: {
               })
               .catch((err) => {
                 emitAgentEvent({
-                  runId,
+                  runId: flushRunId,
                   stream: "lifecycle",
                   data: {
                     phase: "error",
@@ -469,7 +469,7 @@ export async function runReplyAgent(params: {
           if (isClaudeSdkProvider(provider)) {
             const startedAt = Date.now();
             emitAgentEvent({
-              runId,
+              runId: flushRunId,
               stream: "lifecycle",
               data: {
                 phase: "start",
@@ -499,11 +499,11 @@ export async function runReplyAgent(params: {
               thinkLevel: followupRun.run.thinkLevel,
               verboseLevel: followupRun.run.verboseLevel,
               timeoutMs: followupRun.run.timeoutMs,
-              runId,
+              runId: flushRunId,
             })
               .then((result) => {
                 emitAgentEvent({
-                  runId,
+                  runId: flushRunId,
                   stream: "lifecycle",
                   data: {
                     phase: "end",
@@ -515,7 +515,7 @@ export async function runReplyAgent(params: {
               })
               .catch((err) => {
                 emitAgentEvent({
-                  runId,
+                  runId: flushRunId,
                   stream: "lifecycle",
                   data: {
                     phase: "error",

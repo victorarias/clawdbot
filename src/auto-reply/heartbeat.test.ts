@@ -65,16 +65,14 @@ describe("stripHeartbeatToken", () => {
     });
   });
 
-  it("delivers verbose heartbeat responses (agent must reply with ONLY HEARTBEAT_OK)", () => {
-    // This documents the expected behavior: when an agent adds commentary
-    // before HEARTBEAT_OK, the message WILL be delivered because the remaining
-    // text exceeds the 30-char threshold. The agent should reply with ONLY
-    // "HEARTBEAT_OK" when nothing needs attention.
+  it("skips verbose heartbeat responses under the ack max chars", () => {
+    // When an agent adds commentary but stays under ackMaxChars, the response
+    // is treated as a heartbeat ack and suppressed.
     const verboseResponse =
       "It's 8am in Stockholm. Nothing urgent. HEARTBEAT_OK";
     const result = stripHeartbeatToken(verboseResponse, { mode: "heartbeat" });
-    expect(result.shouldSkip).toBe(false); // Will be delivered!
-    expect(result.text).toBe("It's 8am in Stockholm. Nothing urgent.");
+    expect(result.shouldSkip).toBe(true);
+    expect(result.text).toBe("");
     expect(result.didStrip).toBe(true);
   });
 
